@@ -13,7 +13,7 @@ type AgentConfig struct {
 	host           string
 	pollInterval   time.Duration
 	reportInterval time.Duration
-	poolCount      int64
+	PoolCount      int64
 	collector      *metrics.Collector
 	httpClient     *httpclient.HTTPClient
 }
@@ -23,7 +23,7 @@ func NewAgent(host string, pollInterval, reportInterval time.Duration) *AgentCon
 		host:           host,
 		pollInterval:   pollInterval,
 		reportInterval: reportInterval,
-		poolCount:      0,
+		PoolCount:      0,
 		collector:      metrics.NewMetricsCollector(),
 		httpClient:     httpclient.NewHTTPClient(host),
 	}
@@ -41,19 +41,21 @@ func (a *AgentConfig) Start(ctx context.Context) {
 			fmt.Println("Agent shutting down gracefully...")
 			return
 		case <-pollTicker.C:
-			a.poolCount++
+			a.PoolCount++
 			collectedMetrics := a.collector.CollectMetrics()
-			collectedMetrics["PoolCount"] = float64(a.poolCount)
-			fmt.Println("Metrics collected:", collectedMetrics)
+			collectedMetrics = append(collectedMetrics, metrics.GenerateJSON(metrics.Metrics{ID: "PollCount", MType: "counter", Delta: &a.PoolCount}))
+			var jsonSlice []string
+			for _, m := range collectedMetrics {
+				jsonSlice = append(jsonSlice, string(m))
+			}
+			fmt.Println("Metrics collected:", jsonSlice)
 		case <-reportTicker.C:
 			collectedMetrics := a.collector.CollectMetrics()
-			collectedMetrics["PoolCount"] = float64(a.poolCount)
-			fmt.Println("Metrics collected for report:", collectedMetrics)
-
-			for name, value := range collectedMetrics {
-				a.httpClient.SendMetrics("gauge", name, value)
+			collectedMetrics = append(collectedMetrics, metrics.GenerateJSON(metrics.Metrics{ID: "PollCount", MType: "counter", Delta: &a.PoolCount}))
+			for _, data := range collectedMetrics {
+				a.httpClient.SendMetrics(data)
+				fmt.Println("Reported: ", string(data))
 			}
-			a.httpClient.SendMetrics("counter", "PoolCount", float64(a.poolCount))
 		}
 	}
 }

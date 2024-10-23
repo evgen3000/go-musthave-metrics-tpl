@@ -1,10 +1,11 @@
 package httpclient
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -16,20 +17,31 @@ func NewHTTPClient(host string) *HTTPClient {
 	return &HTTPClient{host: host}
 }
 
-func (hc *HTTPClient) SendMetrics(metricType, metricName string, value float64) {
-	metricValue := strconv.FormatFloat(value, 'f', -1, 64)
-	url := fmt.Sprintf("http://%s/update/%s/%s/%s", hc.host, metricType, metricName, metricValue)
+func (hc *HTTPClient) SendMetrics(data []byte) {
+	url := fmt.Sprintf("http://%s/update/", hc.host)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	var buf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&buf)
+	_, err := gzipWriter.Write(data)
+	if err != nil {
+		fmt.Println("Error compressing request:", err)
+		return
+	}
+	err = gzipWriter.Close()
+	if err != nil {
+		fmt.Println("Error closing gzip writer:", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, &buf)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return
 	}
-	req.Header.Set("Content-Type", "text/plain")
-
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -42,5 +54,5 @@ func (hc *HTTPClient) SendMetrics(metricType, metricName string, value float64) 
 		}
 	}()
 
-	fmt.Printf("Metrics %s (%s) with value %s sent successfully\n", metricName, metricType, metricValue)
+	fmt.Printf("Metrics %s sent successfully\n", string(data))
 }
