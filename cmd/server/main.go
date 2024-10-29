@@ -1,31 +1,50 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/router"
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage"
-	"evgen3000/go-musthave-metrics-tpl.git/internal/config"
+	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/filemanager"
+	"evgen3000/go-musthave-metrics-tpl.git/internal/config/server"
+	httpLogger "evgen3000/go-musthave-metrics-tpl.git/internal/logger"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
-func runServer(host string, router *chi.Mux) {
-	fmt.Println("Server is running on", host)
-	err := http.ListenAndServe(host, router)
+func runServer(config *server.Config, router *chi.Mux) {
+	logger := httpLogger.InitLogger()
+	logger.Info("server is running on", zap.String("host", config.Host))
+	err := http.ListenAndServe(config.Host, router)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal("Error", zap.String("Error", err.Error()))
 	}
 }
 
 func main() {
-	c := config.GetHost()
-	s := storage.NewMemStorage()
+	c := server.GetServerConfig()
+	fs := filemanager.FileManager{}
+	s := storage.NewMemStorage(storage.MemStorageConfig{
+		StoreInterval:   c.StoreInterval,
+		FileStoragePath: c.FilePath,
+		Restore:         c.Restore,
+	}, &fs)
+
 	r := router.SetupRouter(s)
 
-	runServer(c.Value, r)
-}
+	ticker := time.NewTicker(c.StoreInterval)
+	defer ticker.Stop()
+	go func() {
+		for range ticker.C {
+			if err := fs.SaveData(c.FilePath, s); err != nil {
+				log.Fatal("Can't to save data", zap.Error(err))
+			} else {
+				log.Println("Saved data")
+			}
+		}
+	}()
 
-// curl -X POST http://localhost:8080/update/gauges/myGauge/3.14159 -H "Content-Type: text/plain"
-// curl -X POST http://localhost:8080/update/counter/myGauge/5 -H "Content-Type: text/plain"
+	runServer(c, r)
+}

@@ -1,39 +1,30 @@
 package storage
 
-type MemStorage struct {
-	gauges   map[string]float64
-	counters map[string]int64
+import (
+	"log"
+	"time"
+
+	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/filemanager"
+	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/memstorage"
+)
+
+type MemStorageConfig struct {
+	StoreInterval   time.Duration
+	FileStoragePath string
+	Restore         bool
 }
 
-func NewMemStorage() *MemStorage {
-	return &MemStorage{
-		gauges:   make(map[string]float64),
-		counters: make(map[string]int64),
+func NewMemStorage(config MemStorageConfig, fm *filemanager.FileManager) *memstorage.MemStorage {
+	var storage = &memstorage.MemStorage{
+		Gauges:   make(map[string]float64),
+		Counters: make(map[string]int64),
 	}
-}
 
-func (m *MemStorage) SetGauge(metricName string, value float64) {
-	m.gauges[metricName] = value
-}
-
-func (m *MemStorage) IncrementCounter(metricName string, value int64) {
-	m.counters[metricName] += value
-}
-
-func (m *MemStorage) GetGauge(metricName string) (float64, bool) {
-	value, exists := m.gauges[metricName]
-	return value, exists
-}
-
-func (m *MemStorage) GetCounter(metricName string) (int64, bool) {
-	value, exists := m.counters[metricName]
-	return value, exists
-}
-
-func (m *MemStorage) GetAllGauges() map[string]float64 {
-	return m.gauges
-}
-
-func (m *MemStorage) GetAllCounters() map[string]int64 {
-	return m.counters
+	if config.Restore {
+		err := fm.LoadData(config.FileStoragePath, storage)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return storage
 }

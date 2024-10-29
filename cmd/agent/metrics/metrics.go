@@ -1,21 +1,32 @@
 package metrics
 
 import (
+	"encoding/json"
+	"log"
 	"math/rand"
 	"runtime"
+
+	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
 )
 
 type Collector struct{}
 
+func GenerateJSON(m dto.MetricsDTO) []byte {
+	body, err := json.Marshal(m)
+	if err != nil {
+		log.Fatal("Conversion have errors:", err.Error())
+	}
+	return body
+}
 func NewMetricsCollector() *Collector {
 	return &Collector{}
 }
 
-func (mc *Collector) CollectMetrics() map[string]float64 {
+func (mc *Collector) CollectMetrics() [][]byte {
 	memStats := new(runtime.MemStats)
 	runtime.ReadMemStats(memStats)
 
-	return map[string]float64{
+	metricsSlice := map[string]float64{
 		"Alloc":         float64(memStats.Alloc),
 		"BuckHashSys":   float64(memStats.BuckHashSys),
 		"Frees":         float64(memStats.Frees),
@@ -45,4 +56,9 @@ func (mc *Collector) CollectMetrics() map[string]float64 {
 		"TotalAlloc":    float64(memStats.TotalAlloc),
 		"RandomValue":   rand.Float64() * 100,
 	}
+	var jsonMetrics [][]byte
+	for metric, value := range metricsSlice {
+		jsonMetrics = append(jsonMetrics, GenerateJSON(dto.MetricsDTO{ID: metric, MType: "gauge", Value: &value}))
+	}
+	return jsonMetrics
 }
