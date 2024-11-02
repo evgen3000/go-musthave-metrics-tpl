@@ -21,15 +21,15 @@ func Connect(dsn string) *pgxpool.Pool {
 		log.Fatalf("Unable to connect to database: %v", err)
 	}
 
-	q := `create table gauge
-			(id varchar(256) primary key,
-			value double precision);
-		create table counter (
-		    id varchar(256) primary key,
-		    value integer)`
+	q := `CREATE TABLE gauge
+			(id VARCHAR(256) PRIMARY KEY,
+			value DOUBLE PRECISION);
+		CREATE TABLE counter (
+		    id VARCHAR(256) PRIMARY KEY ,
+		    value INTEGER);`
 	_, errExec := pool.Exec(context.Background(), q)
 	if errExec != nil {
-		log.Fatalf("Unable to create table: %v", err)
+		log.Fatalf("Unable to create table: %v", errExec)
 	}
 	pingErr := pool.Ping(context.Background())
 	if pingErr != nil {
