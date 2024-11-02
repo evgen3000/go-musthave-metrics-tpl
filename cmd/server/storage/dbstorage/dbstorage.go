@@ -23,6 +23,7 @@ type Counter struct {
 	Value int64  `json:"value"`
 }
 
+
 func (db *DBStorage) StorageType() string {
 	return "db"
 }
@@ -33,6 +34,7 @@ func (db *DBStorage) SetGauge(metricName string, value float64) {
 	err := db.Pool.QueryRow(context.Background(), q, metricName).Scan(&gauge.Id, &gauge.Value)
 	if errors.Is(err, pgx.ErrNoRows) {
 		q = "INSERT INTO public.gauge (id, value) VALUES ($1, $2);"
+
 		_, err = db.Pool.Exec(context.Background(), q, metricName, value)
 		if err != nil {
 			log.Printf("Error to create gauge %s with %v: %v", metricName, value, err)
@@ -52,6 +54,7 @@ func (db *DBStorage) SetGauge(metricName string, value float64) {
 
 func (db *DBStorage) IncrementCounter(metricName string, value int64) {
 	var counter Counter
+
 	q := `SELECT id, value FROM public.counter WHERE id = $1;`
 	err := db.Pool.QueryRow(context.Background(), q, metricName).Scan(&counter.Id, &counter.Value)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -67,6 +70,7 @@ func (db *DBStorage) IncrementCounter(metricName string, value int64) {
 		if err != nil {
 			log.Printf("Error to update gauge %s with %v: %v", metricName, value, err)
 		}
+
 		return
 	} else {
 		log.Printf("Can't update gauge %s to %v: %v", metricName, value, err)
@@ -134,13 +138,17 @@ func (db *DBStorage) GetAllCounters() map[string]int64 {
 	defer rows.Close()
 
 	for rows.Next() {
+
 		var counter Counter
 		err := rows.Scan(&counter.Id, &counter.Value)
+
 		if err != nil {
 			log.Printf("Can't get all gauges: %v", err)
 			return nil
 		}
+
 		counters[counter.Id] = counter.Value
 	}
 	return counters
+
 }
