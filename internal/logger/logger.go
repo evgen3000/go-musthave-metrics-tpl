@@ -42,11 +42,6 @@ func (r *loggingResponseWriter) Write(b []byte) (int, error) {
 	return size, err
 }
 
-func (r *loggingResponseWriter) WriteHeader(statusCode int) {
-	r.ResponseWriter.WriteHeader(statusCode)
-	r.status = statusCode
-}
-
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := InitLogger() // Получаем логгер из синглтона
@@ -57,7 +52,6 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			bodyBytes, err := io.ReadAll(r.Body)
 			if err != nil {
 				logger.Error("Error reading request body", zap.Error(err))
-				http.Error(w, "Unable to read request body", http.StatusInternalServerError)
 				return
 			}
 			requestBody = bodyBytes

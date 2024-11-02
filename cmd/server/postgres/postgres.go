@@ -7,38 +7,36 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//postgresql://admin:admin@localhost:5432/admin?schema=public
+type Container struct {
+	DBPool *pgxpool.Pool
+} //postgresql://admin:admin@localhost:5432/admin?schema=public
 
-var Pool *pgxpool.Pool
-
-func Connect(dsn string) {
+func Connect(dsn string) *pgxpool.Pool {
 
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		log.Fatalf("Unable to parse config: %v", err)
 	}
 
-	Pool, err = pgxpool.NewWithConfig(context.Background(), config)
-	if err != nil {
+	pool, poolErr := pgxpool.NewWithConfig(context.Background(), config)
+	if poolErr != nil {
 		log.Fatalf("Unable to connect to database: %v", err)
 	}
 
-	log.Println("Successfully connected to database")
-}
-
-func InitDB() {
-	q := `create table gauge
-			(id varchar(256) primary key, 
-			value double precision);
-		create table counter (
-		    id varchar(256) primary key,
-		    value integer)`
-	_, err := Pool.Exec(context.Background(), q)
-	if err != nil {
-		log.Fatalf("Unable to create table: %v", err)
+	//q := `create table gauge
+	//		(id varchar(256) primary key,
+	//		value double precision);
+	//	create table counter (
+	//	    id varchar(256) primary key,
+	//	    value integer)`
+	//_, errExec := pool.Exec(context.Background(), q)
+	//if errExec != nil {
+	//	log.Fatalf("Unable to create table: %v", err)
+	//}
+	pingErr := pool.Ping(context.Background())
+	if pingErr != nil {
+		log.Fatalf("Unable to ping database: %v", pingErr)
 	}
-}
-
-func Close() {
-	Pool.Close()
+	log.Println("Successfully connected to database")
+	return pool
 }

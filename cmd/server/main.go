@@ -5,10 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/postgres"
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/router"
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage"
-	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/filemanager"
+	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/memstorage/filemanager"
 	"evgen3000/go-musthave-metrics-tpl.git/internal/config/server"
 	httpLogger "evgen3000/go-musthave-metrics-tpl.git/internal/logger"
 	"github.com/go-chi/chi/v5"
@@ -19,9 +18,6 @@ func runServer(config *server.Config, router *chi.Mux) {
 	logger := httpLogger.InitLogger()
 	logger.Info("server is running on", zap.String("host", config.Host))
 
-	postgres.Connect(config.Database)
-	defer postgres.Close()
-
 	err := http.ListenAndServe(config.Host, router)
 	if err != nil {
 		logger.Fatal("Error", zap.String("Error", err.Error()))
@@ -30,12 +26,13 @@ func runServer(config *server.Config, router *chi.Mux) {
 
 func main() {
 	c := server.GetServerConfig()
-	fs := filemanager.FileManager{}
-	s := storage.NewMemStorage(storage.MemStorageConfig{
+	fm := filemanager.FileManager{}
+	s := storage.NewStorage(storage.Config{
 		StoreInterval:   c.StoreInterval,
 		FileStoragePath: c.FilePath,
 		Restore:         c.Restore,
-	}, &fs)
+		Database:        c.Database,
+	}, &fm)
 
 	r := router.SetupRouter(s)
 
@@ -43,7 +40,7 @@ func main() {
 	defer ticker.Stop()
 	go func() {
 		for range ticker.C {
-			if err := fs.SaveData(c.FilePath, s); err != nil {
+			if err := fm.SaveData(c.FilePath, s); err != nil {
 				log.Fatal("Can't to save data", zap.Error(err))
 			} else {
 				log.Println("Saved data")
