@@ -5,6 +5,10 @@ type MemStorage struct {
 	Counters map[string]int64   `json:"counters"`
 }
 
+func (m *MemStorage) StorageType() string {
+	return "ms"
+}
+
 func (m *MemStorage) SetGauge(metricName string, value float64) {
 	m.Gauges[metricName] = value
 }

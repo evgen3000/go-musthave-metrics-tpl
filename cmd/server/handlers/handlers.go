@@ -1,14 +1,12 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/postgres"
-	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/memstorage"
+	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage"
 	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
 	"github.com/go-chi/chi/v5"
 )
@@ -19,19 +17,19 @@ const (
 )
 
 type Handler struct {
-	Storage *memstorage.MemStorage
+	Storage storage.Interface
 }
 
-func NewHandler(storage *memstorage.MemStorage) *Handler {
-	return &Handler{storage}
+func NewHandler(storage storage.Interface) *Handler {
+	return &Handler{Storage: storage}
 }
 
 func (h *Handler) Ping(rw http.ResponseWriter, _ *http.Request) {
-	err := postgres.Pool.Ping(context.Background())
-	if err != nil {
+	if h.Storage.StorageType() == "db" {
+		rw.WriteHeader(http.StatusOK)
+	} else {
 		rw.WriteHeader(http.StatusInternalServerError)
 	}
-	rw.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) HomeHandler(rw http.ResponseWriter, _ *http.Request) {
