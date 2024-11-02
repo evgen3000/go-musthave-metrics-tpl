@@ -20,7 +20,7 @@ func GetServerConfig() *Config {
 	storeIntervalFlag := flag.Int("i", 300, "Store interval in sec.")
 	filePathFlag := flag.String("f", "storage.json", "File storage location.")
 	restoreFlag := flag.Bool("r", true, "Restore stored configuration.")
-	databaseURL := flag.String("d", "postgres://admin:admin@localhost:5432/admin", "Database IP address and port. like: postgres://admin:admin@localhost:5432/admin")
+	databaseURL := flag.String("d", "", "Database IP address and port. like: postgres://admin:admin@localhost:5432/admin")
 	flag.Parse()
 	return &Config{
 		Host:          utils.GetStringValue("ADDRESS", *hostFlag),
