@@ -29,7 +29,7 @@ func Connect(dsn string) *pgxpool.Pool {
 		    value INTEGER);`
 	_, errExec := pool.Exec(context.Background(), q)
 	if errExec != nil {
-		log.Fatalf("Unable to create table: %v", errExec)
+		log.Printf("Unable to create table: %v", errExec)
 	}
 	pingErr := pool.Ping(context.Background())
 	if pingErr != nil {
