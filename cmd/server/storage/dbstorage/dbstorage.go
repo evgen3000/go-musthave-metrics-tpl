@@ -40,7 +40,7 @@ func (db *DBStorage) SetGauge(metricName string, value float64) {
 		}
 		return
 	} else if err == nil {
-		q = `UPDATE gauge SET gauge.value = $2 WHERE id = $1;`
+		q = `UPDATE gauge SET value = $2 WHERE id = $1;`
 		_, err = db.Pool.Exec(context.Background(), q, metricName, value)
 		if err != nil {
 			log.Printf("Error to update gauge %s with %v: %v", metricName, value, err)
