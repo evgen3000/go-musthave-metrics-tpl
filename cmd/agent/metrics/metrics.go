@@ -1,8 +1,6 @@
 package metrics
 
 import (
-	"encoding/json"
-	"log"
 	"math/rand"
 	"runtime"
 
@@ -11,18 +9,11 @@ import (
 
 type Collector struct{}
 
-func GenerateJSON(m dto.MetricsDTO) []byte {
-	body, err := json.Marshal(m)
-	if err != nil {
-		log.Fatal("Conversion have errors:", err.Error())
-	}
-	return body
-}
 func NewMetricsCollector() *Collector {
 	return &Collector{}
 }
 
-func (mc *Collector) CollectMetrics() [][]byte {
+func (mc *Collector) CollectMetrics() []dto.MetricsDTO {
 	memStats := new(runtime.MemStats)
 	runtime.ReadMemStats(memStats)
 
@@ -56,9 +47,14 @@ func (mc *Collector) CollectMetrics() [][]byte {
 		"TotalAlloc":    float64(memStats.TotalAlloc),
 		"RandomValue":   rand.Float64() * 100,
 	}
-	var jsonMetrics [][]byte
+	var Metrics []dto.MetricsDTO
 	for metric, value := range metricsSlice {
-		jsonMetrics = append(jsonMetrics, GenerateJSON(dto.MetricsDTO{ID: metric, MType: "gauge", Value: &value}))
+		Metrics = append(Metrics, dto.MetricsDTO{
+			ID:    metric,
+			MType: dto.MetricTypeGauge,
+			Delta: nil,
+			Value: &value,
+		})
 	}
-	return jsonMetrics
+	return Metrics
 }

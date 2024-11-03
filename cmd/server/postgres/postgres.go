@@ -23,10 +23,10 @@ func Connect(dsn string) *pgxpool.Pool {
 
 	q := `CREATE TABLE gauge
 			(id VARCHAR(256) PRIMARY KEY,
-			value DOUBLE PRECISION);
+			value DOUBLE PRECISION NOT NULL );
 		CREATE TABLE counter (
 		    id VARCHAR(256) PRIMARY KEY ,
-		    value INTEGER);`
+		    value INTEGER NOT NULL );`
 	_, errExec := pool.Exec(context.Background(), q)
 	if errExec != nil {
 		log.Printf("Unable to create table: %v", errExec)
