@@ -44,7 +44,6 @@ func (db *DBStorage) SetMetrics(metrics []dto.MetricsDTO) {
 
 	for _, metric := range metrics {
 		if metric.MType == dto.MetricTypeGauge && metric.Value != nil {
-			// Проверяем, что Value не nil перед разыменованием
 			q := `INSERT INTO public.gauge (id, value)
 					VALUES ($1, $2)
 					ON CONFLICT (id) DO UPDATE
