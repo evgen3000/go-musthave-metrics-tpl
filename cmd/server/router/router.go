@@ -19,7 +19,7 @@ func SetupRouter(storage storage.Interface) *chi.Mux {
 		r.Post("/{metricType}/{metricName}/{metricValue}", h.UpdateMetricHandlerText)
 	})
 
-	chiRouter.Post("/updates", h.UpdateMetrics)
+	chiRouter.Post("/updates/", h.UpdateMetrics)
 
 	chiRouter.Route("/value", func(r chi.Router) {
 		r.Post("/", h.GetMetricHandlerJSON)
