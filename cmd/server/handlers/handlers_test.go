@@ -45,7 +45,7 @@ func TestUpdateMetricHandlerJSON(t *testing.T) {
 	// Test for Counter metric
 	counterMetric := dto.MetricsDTO{
 		ID:    "test_counter",
-		MType: handlers.MetricTypeCounter,
+		MType: dto.MetricTypeCounter,
 		Delta: new(int64),
 	}
 	*counterMetric.Delta = 42
@@ -65,7 +65,7 @@ func TestUpdateMetricHandlerJSON(t *testing.T) {
 	// Test for Gauge metric
 	gaugeMetric := dto.MetricsDTO{
 		ID:    "test_gauge",
-		MType: handlers.MetricTypeGauge,
+		MType: dto.MetricTypeGauge,
 		Value: new(float64),
 	}
 	*gaugeMetric.Value = 3.14
@@ -114,7 +114,7 @@ func TestGetMetricHandlerJSON(t *testing.T) {
 
 	metric := dto.MetricsDTO{
 		ID:    "test_gauge",
-		MType: handlers.MetricTypeGauge,
+		MType: dto.MetricTypeGauge,
 	}
 	body, err := json.Marshal(metric)
 	assert.NoError(t, err)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 
+	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -25,6 +26,46 @@ type Counter struct {
 
 func (db *DBStorage) StorageType() string {
 	return "db"
+}
+
+func (db *DBStorage) SetMetrics(metrics []dto.MetricsDTO) {
+	tx, err := db.Pool.Begin(context.Background())
+	if err != nil {
+		log.Printf("Error starting transaction: %s", err)
+		return
+	}
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(context.Background()); rollbackErr != nil {
+				log.Fatalf("Unable to rollback transaction: %v", rollbackErr)
+			}
+		}
+	}()
+	for _, metric := range metrics {
+		if metric.MType == dto.MetricTypeGauge {
+			q := `INSERT INTO public.gauge (id, value)
+					VALUES ($1, $2)
+					ON CONFLICT (id) DO UPDATE
+					SET value = $2;`
+			_, err = tx.Exec(context.Background(), q, metric.ID, metric.Value)
+			if err != nil {
+				log.Printf("Error inserting gauge metric: %v", err)
+			}
+		} else if metric.MType == dto.MetricTypeCounter {
+			q := `INSERT INTO public.counter (id, value)
+    				VALUES ($1, $2)
+					ON CONFLICT (id) DO UPDATE
+					SET value = value + $2;`
+			_, err = tx.Exec(context.Background(), q, metric.ID, metric.Value)
+			if err != nil {
+				log.Printf("Error inserting counter metric: %v", err)
+			}
+		}
+	}
+	err = tx.Commit(context.Background())
+	if err != nil {
+		log.Fatalf("Unable to commit transaction: %v", err)
+	}
 }
 
 func (db *DBStorage) SetGauge(metricName string, value float64) {

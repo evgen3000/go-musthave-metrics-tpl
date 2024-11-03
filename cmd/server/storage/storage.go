@@ -8,10 +8,12 @@ import (
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/dbstorage"
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/memstorage"
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/memstorage/filemanager"
+	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
 )
 
 type Interface interface {
 	StorageType() string
+	SetMetrics(dto []dto.MetricsDTO)
 	SetGauge(metricName string, value float64)
 	IncrementCounter(metricName string, value int64)
 	GetGauge(metricName string) (float64, bool)

@@ -11,11 +11,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-const (
-	MetricTypeCounter = "counter"
-	MetricTypeGauge   = "gauge"
-)
-
 type Handler struct {
 	Storage storage.Interface
 }
@@ -61,7 +56,7 @@ func (h *Handler) UpdateMetricHandlerJSON(rw http.ResponseWriter, r *http.Reques
 		return
 	}
 	switch body.MType {
-	case MetricTypeCounter:
+	case dto.MetricTypeCounter:
 		h.Storage.IncrementCounter(body.ID, *body.Delta)
 		value, _ := h.Storage.GetCounter(body.ID)
 
@@ -75,7 +70,7 @@ func (h *Handler) UpdateMetricHandlerJSON(rw http.ResponseWriter, r *http.Reques
 		}
 		rw.WriteHeader(http.StatusOK)
 		return
-	case MetricTypeGauge:
+	case dto.MetricTypeGauge:
 		h.Storage.SetGauge(body.ID, *body.Value)
 		value, _ := h.Storage.GetGauge(body.ID)
 
@@ -100,13 +95,13 @@ func (h *Handler) UpdateMetricHandlerText(rw http.ResponseWriter, r *http.Reques
 	metricValue := chi.URLParam(r, "metricValue")
 
 	switch metricType {
-	case MetricTypeCounter:
+	case dto.MetricTypeCounter:
 		value, err := strconv.ParseInt(metricValue, 10, 64)
 		if err != nil {
 			http.Error(rw, "Bad request", http.StatusBadRequest)
 		}
 		h.Storage.IncrementCounter(metricName, value)
-	case MetricTypeGauge:
+	case dto.MetricTypeGauge:
 		value, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
 			http.Error(rw, "Bad request", http.StatusBadRequest)
@@ -128,12 +123,12 @@ func (h *Handler) GetMetricHandlerJSON(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if body.MType != MetricTypeGauge && body.MType != MetricTypeCounter {
+	if body.MType != dto.MetricTypeGauge && body.MType != dto.MetricTypeCounter {
 		http.Error(rw, "Invalid metric type", http.StatusBadRequest)
 		return
 	}
 
-	if body.MType == MetricTypeGauge {
+	if body.MType == dto.MetricTypeGauge {
 		value, exists := h.Storage.GetGauge(body.ID)
 
 		if !exists {
@@ -171,11 +166,11 @@ func (h *Handler) GetMetricHandlerText(rw http.ResponseWriter, r *http.Request) 
 	metricType := chi.URLParam(r, "metricType")
 	metricName := chi.URLParam(r, "metricName")
 
-	if metricType != MetricTypeGauge && metricType != MetricTypeCounter {
+	if metricType != dto.MetricTypeGauge && metricType != dto.MetricTypeCounter {
 		http.Error(rw, "Invalid metric type", http.StatusBadRequest)
 	}
 
-	if metricType == MetricTypeGauge {
+	if metricType == dto.MetricTypeGauge {
 		value, exists := h.Storage.GetGauge(metricName)
 		if !exists {
 			http.Error(rw, "Metric not found", http.StatusNotFound)
@@ -196,4 +191,16 @@ func (h *Handler) GetMetricHandlerText(rw http.ResponseWriter, r *http.Request) 
 			http.Error(rw, "Write failed", http.StatusBadRequest)
 		}
 	}
+}
+
+func (h *Handler) UpdateMetrics(rw http.ResponseWriter, r *http.Request) {
+	var body []dto.MetricsDTO
+	rw.Header().Set("Content-Type", "application/json")
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+	h.Storage.SetMetrics(body)
+	rw.WriteHeader(http.StatusOK)
 }
