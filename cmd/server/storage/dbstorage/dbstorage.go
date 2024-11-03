@@ -42,7 +42,7 @@ func (db *DBStorage) SetMetrics(metrics []dto.MetricsDTO) {
 		}
 	}()
 	for _, metric := range metrics {
-		if metric.MType == dto.MetricTypeGauge {
+		if metric.MType == dto.MetricTypeGauge && metric.Value != nil {
 			q := `INSERT INTO public.gauge (id, value)
 					VALUES ($1, $2)
 					ON CONFLICT (id) DO UPDATE
@@ -51,7 +51,7 @@ func (db *DBStorage) SetMetrics(metrics []dto.MetricsDTO) {
 			if err != nil {
 				log.Printf("Error inserting gauge metric: %v", err)
 			}
-		} else if metric.MType == dto.MetricTypeCounter {
+		} else if metric.MType == dto.MetricTypeCounter && metric.Delta != nil {
 			q := `INSERT INTO public.counter (id, value)
     				VALUES ($1, $2)
 					ON CONFLICT (id) DO UPDATE
@@ -60,6 +60,8 @@ func (db *DBStorage) SetMetrics(metrics []dto.MetricsDTO) {
 			if err != nil {
 				log.Printf("Error inserting counter metric: %v", err)
 			}
+		} else {
+			log.Printf("Unknown metric type or metric value is nil: %s, %s", metric.MType, metric.ID)
 		}
 	}
 	err = tx.Commit(context.Background())
