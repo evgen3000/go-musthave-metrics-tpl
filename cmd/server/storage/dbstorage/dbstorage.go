@@ -47,7 +47,7 @@ func (db *DBStorage) SetMetrics(metrics []dto.MetricsDTO) {
 					VALUES ($1, $2)
 					ON CONFLICT (id) DO UPDATE
 					SET value = excluded.value;`
-			_, err = tx.Exec(context.Background(), q, metric.ID, metric.Value)
+			_, err = tx.Exec(context.Background(), q, metric.ID, *metric.Value)
 			if err != nil {
 				log.Printf("Error inserting gauge metric: %v", err)
 			}
@@ -56,7 +56,7 @@ func (db *DBStorage) SetMetrics(metrics []dto.MetricsDTO) {
     				VALUES ($1, $2)
 					ON CONFLICT (id) DO UPDATE
 					SET value = public.counter.value + excluded.value;`
-			_, err = tx.Exec(context.Background(), q, metric.ID, metric.Value)
+			_, err = tx.Exec(context.Background(), q, metric.ID, *metric.Value)
 			if err != nil {
 				log.Printf("Error inserting counter metric: %v", err)
 			}
