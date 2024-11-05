@@ -26,7 +26,7 @@ func Connect(dsn string) *pgxpool.Pool {
 			value DOUBLE PRECISION NOT NULL );
 		CREATE TABLE counter (
 		    id VARCHAR(256) PRIMARY KEY ,
-		    value INTEGER NOT NULL );`
+		    value BIGINT NOT NULL );`
 	_, errExec := pool.Exec(context.Background(), q)
 	if errExec != nil {
 		log.Printf("Unable to create table: %v", errExec)
