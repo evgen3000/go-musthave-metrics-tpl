@@ -16,7 +16,10 @@ var StorageConfig = storage.Config{
 
 func TestMemStorageSetAndGetGauge(t *testing.T) {
 	fm := filemanager.FileManager{}
-	s := storage.NewStorage(StorageConfig, &fm)
+	s, err := storage.NewStorage(StorageConfig, &fm)
+	if err != nil {
+		panic(err)
+	}
 	s.SetGauge("temperature", 23.5)
 
 	value, exists := s.GetGauge("temperature")
@@ -25,7 +28,10 @@ func TestMemStorageSetAndGetGauge(t *testing.T) {
 }
 func TestMemStorage_IncrementCounter(t *testing.T) {
 	fm := filemanager.FileManager{}
-	s := storage.NewStorage(StorageConfig, &fm)
+	s, err := storage.NewStorage(StorageConfig, &fm)
+	if err != nil {
+		panic(err)
+	}
 	s.IncrementCounter("hits", 10)
 	s.IncrementCounter("hits", 5)
 

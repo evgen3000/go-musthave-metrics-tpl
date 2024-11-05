@@ -17,12 +17,15 @@ import (
 
 func setupHandler() *handlers.Handler {
 	fm := filemanager.FileManager{}
-	memStorage := storage.NewStorage(storage.Config{
+	memStorage, err := storage.NewStorage(storage.Config{
 		StoreInterval:   5,
 		FileStoragePath: "storage.json",
 		Restore:         false,
 		Database:        "",
 	}, &fm)
+	if err != nil {
+		panic(err)
+	}
 	return handlers.NewHandler(memStorage)
 }
 
