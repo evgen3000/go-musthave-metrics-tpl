@@ -2,6 +2,7 @@ package filemanager
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -25,7 +26,7 @@ func (fm *FileManager) SaveData(filePath string, storage StorageInterface) error
 	}
 	fileData, err := json.Marshal(storageMap)
 	if err != nil {
-		return err
+		return fmt.Errorf("error while marshalling file: %w", err)
 	}
 	return os.WriteFile(filePath, fileData, 0644)
 }
@@ -39,12 +40,12 @@ func (fm *FileManager) LoadData(filePath string, storage StorageInterface) error
 		}
 	}()
 	if err != nil {
-		log.Fatal("Can't open file.", err.Error())
+		return fmt.Errorf("can't open file. %w", err)
 	}
 
 	fileData, err := io.ReadAll(file)
 	if err != nil {
-		log.Fatal("Can't read file.", err.Error())
+		return fmt.Errorf("can't read file. %w", err)
 	}
 	if len(fileData) == 0 {
 		log.Println("Storage file is empty, nothing to load.")
@@ -53,7 +54,7 @@ func (fm *FileManager) LoadData(filePath string, storage StorageInterface) error
 
 	err = json.Unmarshal(fileData, &storage)
 	if err != nil {
-		log.Fatal("Can't read json.", err.Error())
+		return fmt.Errorf("can't read json. %w", err)
 	}
 	return nil
 }

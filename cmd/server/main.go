@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -27,13 +28,15 @@ func runServer(config *server.Config, router *chi.Mux) {
 func main() {
 	c := server.GetServerConfig()
 	fm := filemanager.FileManager{}
-	s := storage.NewStorage(storage.Config{
+	s, err := storage.NewStorage(storage.Config{
 		StoreInterval:   c.StoreInterval,
 		FileStoragePath: c.FilePath,
 		Restore:         c.Restore,
 		Database:        c.Database,
 	}, &fm)
-
+	if err != nil {
+		log.Fatal(errors.Unwrap(err))
+	}
 	r := router.SetupRouter(s)
 
 	ticker := time.NewTicker(c.StoreInterval)
@@ -41,7 +44,7 @@ func main() {
 	go func() {
 		for range ticker.C {
 			if err := fm.SaveData(c.FilePath, s); err != nil {
-				log.Fatal("Can't to save data", zap.Error(err))
+				log.Fatal("Can't to save data to storage.json")
 			} else {
 				log.Println("Saved data")
 			}

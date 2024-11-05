@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"log"
+	"fmt"
 	"time"
 
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/postgres"
@@ -29,7 +29,7 @@ type Config struct {
 	Database        string
 }
 
-func NewStorage(config Config, fm *filemanager.FileManager) Interface {
+func NewStorage(config Config, fm *filemanager.FileManager) (Interface, error) {
 	if config.Database == "" {
 		var storage Interface = &memstorage.MemStorage{
 			Gauges:   make(map[string]float64),
@@ -38,14 +38,14 @@ func NewStorage(config Config, fm *filemanager.FileManager) Interface {
 		if config.Restore {
 			err := fm.LoadData(config.FileStoragePath, storage)
 			if err != nil {
-				log.Fatal(err)
+				return nil, fmt.Errorf("can't read from storage file. %w", err)
 			}
 		}
-		return storage
+		return storage, nil
 	} else {
 		pool := postgres.Connect(config.Database)
 		var storage Interface = &dbstorage.DBStorage{Pool: pool}
-		return storage
+		return storage, nil
 	}
 
 }
