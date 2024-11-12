@@ -57,6 +57,9 @@ func Connect(dsn string) *pgxpool.Pool {
 	if migrationErr != nil && !errors.Is(err, migrate.ErrNoChange) {
 		log.Fatalf("Migration failed: %v", err)
 	}
+	if migrationErr == nil {
+		log.Println("Migration succeeded")
+	}
 
 	pingErr := pool.Ping(context.Background())
 	if pingErr != nil {
