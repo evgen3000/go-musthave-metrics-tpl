@@ -3,6 +3,7 @@ package httpclient_test
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,9 +14,6 @@ import (
 )
 
 func TestHTTPClient_SendMetrics(t *testing.T) {
-	testHost := "localhost:8080"
-	client := httpclient.NewHTTPClient(testHost)
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/updates/", r.URL.Path)
 		assert.Equal(t, http.MethodPost, r.Method)
@@ -28,7 +26,7 @@ func TestHTTPClient_SendMetrics(t *testing.T) {
 		defer func(gzipReader *gzip.Reader) {
 			err := gzipReader.Close()
 			if err != nil {
-
+				fmt.Println("Cant close gzip reader")
 			}
 		}(gzipReader)
 
@@ -43,7 +41,7 @@ func TestHTTPClient_SendMetrics(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client = httpclient.NewHTTPClient(server.Listener.Addr().String())
+	client := httpclient.NewHTTPClient(server.Listener.Addr().String())
 
 	data := `[{"id":"testMetric","type":"gauge","value":42.42}]`
 	client.SendMetrics([]byte(data))
