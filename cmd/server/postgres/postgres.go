@@ -51,6 +51,9 @@ func Connect(dsn string) *pgxpool.Pool {
 	}
 
 	err = m.Up()
+	if errors.Is(err, migrate.ErrNoChange) {
+		log.Println("No change")
+	}
 	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		log.Fatalf("Migration failed: %v", err)
 	}
