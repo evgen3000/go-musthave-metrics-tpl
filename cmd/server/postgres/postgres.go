@@ -42,7 +42,7 @@ func Connect(dsn string) *pgxpool.Pool {
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
-		"migrations/",
+		"file://cmd/server/postgres/migrations",
 		"admin",
 		driver,
 	)
