@@ -50,11 +50,11 @@ func Connect(dsn string) *pgxpool.Pool {
 		log.Fatalf("Unable to create migrate instance: %v", err)
 	}
 
-	err = m.Up()
-	if errors.Is(err, migrate.ErrNoChange) {
+	migrationErr := m.Up()
+	if errors.Is(migrationErr, migrate.ErrNoChange) {
 		log.Println("No change")
 	}
-	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
+	if migrationErr != nil && !errors.Is(err, migrate.ErrNoChange) {
 		log.Fatalf("Migration failed: %v", err)
 	}
 
