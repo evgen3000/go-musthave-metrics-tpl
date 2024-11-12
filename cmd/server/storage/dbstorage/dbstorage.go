@@ -28,7 +28,25 @@ func (db *DBStorage) StorageType() string {
 	return "db"
 }
 
-func (db *DBStorage) SetMetrics(metrics []dto.MetricsDTO) {
+func (db *DBStorage) InsertOrUpdateGauge(ctx context.Context, metricID string, value float64) error {
+	q := `INSERT INTO public.gauge (id, value)
+			VALUES ($1, $2)
+			ON CONFLICT (id) DO UPDATE
+			SET value = excluded.value;`
+	_, err := db.Pool.Exec(ctx, q, metricID, value)
+	return err
+}
+
+func (db *DBStorage) InsertOrUpdateCounter(ctx context.Context, metricID string, delta int64) error {
+	q := `INSERT INTO public.counter (id, value)
+			VALUES ($1, $2)
+			ON CONFLICT (id) DO UPDATE
+			SET value = public.counter.value + excluded.value;`
+	_, err := db.Pool.Exec(ctx, q, metricID, delta)
+	return err
+}
+
+func (db *DBStorage) SetMetrics(ctx context.Context, metrics []dto.MetricsDTO) {
 	tx, err := db.Pool.Begin(context.Background())
 	if err != nil {
 		log.Printf("Error starting transaction: %s", err)
@@ -44,20 +62,12 @@ func (db *DBStorage) SetMetrics(metrics []dto.MetricsDTO) {
 
 	for _, metric := range metrics {
 		if metric.MType == dto.MetricTypeGauge && metric.Value != nil {
-			q := `INSERT INTO public.gauge (id, value)
-					VALUES ($1, $2)
-					ON CONFLICT (id) DO UPDATE
-					SET value = excluded.value;`
-			_, err = tx.Exec(context.Background(), q, metric.ID, *metric.Value)
+			err = db.InsertOrUpdateGauge(ctx, metric.ID, *metric.Value)
 			if err != nil {
 				log.Printf("Error inserting gauge metric: %v", err)
 			}
 		} else if metric.MType == dto.MetricTypeCounter && metric.Delta != nil {
-			q := `INSERT INTO public.counter (id, value)
-    				VALUES ($1, $2)
-					ON CONFLICT (id) DO UPDATE
-					SET value = public.counter.value + excluded.value;`
-			_, err = tx.Exec(context.Background(), q, metric.ID, *metric.Delta)
+			err = db.InsertOrUpdateCounter(ctx, metric.ID, *metric.Delta)
 			if err != nil {
 				log.Printf("Error inserting counter metric: %v", err)
 			}
@@ -65,6 +75,7 @@ func (db *DBStorage) SetMetrics(metrics []dto.MetricsDTO) {
 			log.Printf("Unknown metric type or metric value is nil: %s, %s", metric.MType, metric.ID)
 		}
 	}
+
 	err = tx.Commit(context.Background())
 	if err != nil {
 		log.Fatalf("Unable to commit transaction: %v", err)
