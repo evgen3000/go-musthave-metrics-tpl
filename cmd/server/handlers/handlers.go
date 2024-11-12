@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage"
 	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
@@ -202,6 +203,8 @@ func (h *Handler) UpdateMetrics(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	h.Storage.SetMetrics(context.Background(), body)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	h.Storage.SetMetrics(ctx, body)
+	defer cancel()
 	rw.WriteHeader(http.StatusOK)
 }
