@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -113,7 +114,7 @@ func TestUpdateMetricHandlerText(t *testing.T) {
 func TestGetMetricHandlerJSON(t *testing.T) {
 	h := setupHandler()
 
-	h.Storage.SetGauge("test_gauge", 3.14)
+	h.Storage.SetGauge(context.Background(), "test_gauge", 3.14)
 
 	metric := dto.MetricsDTO{
 		ID:    "test_gauge",
@@ -135,8 +136,7 @@ func TestGetMetricHandlerJSON(t *testing.T) {
 func TestGetMetricHandlerText(t *testing.T) {
 	h := setupHandler()
 
-	// Add a metric to the storage for testing
-	h.Storage.SetGauge("test_gauge", 3.14)
+	h.Storage.SetGauge(context.Background(), "test_gauge", 3.14)
 
 	req, err := http.NewRequest(http.MethodGet, "/value/gauge/test_gauge", nil)
 	assert.NoError(t, err)

@@ -82,21 +82,21 @@ func (db *DBStorage) SetMetrics(ctx context.Context, metrics []dto.MetricsDTO) {
 	}
 }
 
-func (db *DBStorage) SetGauge(metricName string, value float64) {
+func (db *DBStorage) SetGauge(ctx context.Context, metricName string, value float64) {
 	var gauge Gauge
 	q := `SELECT id, value FROM public.gauge WHERE id = $1;`
-	err := db.Pool.QueryRow(context.Background(), q, metricName).Scan(&gauge.ID, &gauge.Value)
+	err := db.Pool.QueryRow(ctx, q, metricName).Scan(&gauge.ID, &gauge.Value)
 	if errors.Is(err, pgx.ErrNoRows) {
 		q = "INSERT INTO public.gauge (id, value) VALUES ($1, $2);"
 
-		_, err = db.Pool.Exec(context.Background(), q, metricName, value)
+		_, err = db.Pool.Exec(ctx, q, metricName, value)
 		if err != nil {
 			log.Printf("Error to create gauge %s with %v: %v", metricName, value, err)
 		}
 		return
 	} else if err == nil {
 		q = `UPDATE gauge SET value = $2 WHERE id = $1;`
-		_, err = db.Pool.Exec(context.Background(), q, metricName, value)
+		_, err = db.Pool.Exec(ctx, q, metricName, value)
 		if err != nil {
 			log.Printf("Error to update gauge %s with %v: %v", metricName, value, err)
 		}
@@ -106,21 +106,21 @@ func (db *DBStorage) SetGauge(metricName string, value float64) {
 	}
 }
 
-func (db *DBStorage) IncrementCounter(metricName string, value int64) {
+func (db *DBStorage) IncrementCounter(ctx context.Context, metricName string, value int64) {
 	var counter Counter
 
 	q := `SELECT id, value FROM public.counter WHERE id = $1;`
-	err := db.Pool.QueryRow(context.Background(), q, metricName).Scan(&counter.ID, &counter.Value)
+	err := db.Pool.QueryRow(ctx, q, metricName).Scan(&counter.ID, &counter.Value)
 	if errors.Is(err, pgx.ErrNoRows) {
 		q = `INSERT INTO public.counter (id, value) VALUES ($1, $2);`
-		_, err = db.Pool.Exec(context.Background(), q, metricName, value)
+		_, err = db.Pool.Exec(ctx, q, metricName, value)
 		if err != nil {
 			log.Printf("Error to create gauge %s with %v: %v", metricName, value, err)
 		}
 		return
 	} else if err == nil {
 		q = `UPDATE public.counter SET value = $2 WHERE id = $1;`
-		_, err = db.Pool.Exec(context.Background(), q, metricName, value+*counter.Value)
+		_, err = db.Pool.Exec(ctx, q, metricName, value+*counter.Value)
 		if err != nil {
 			log.Printf("Error to update gauge %s with %v: %v", metricName, value, err)
 		}
@@ -131,10 +131,10 @@ func (db *DBStorage) IncrementCounter(metricName string, value int64) {
 	}
 }
 
-func (db *DBStorage) GetGauge(metricName string) (float64, bool) {
+func (db *DBStorage) GetGauge(ctx context.Context, metricName string) (float64, bool) {
 	var gauge Gauge
 	q := `SELECT id, value FROM public.gauge WHERE id = $1;`
-	err := db.Pool.QueryRow(context.Background(), q, metricName).Scan(&gauge.ID, &gauge.Value)
+	err := db.Pool.QueryRow(ctx, q, metricName).Scan(&gauge.ID, &gauge.Value)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, false
 	} else if err != nil {
@@ -145,10 +145,10 @@ func (db *DBStorage) GetGauge(metricName string) (float64, bool) {
 	}
 }
 
-func (db *DBStorage) GetCounter(metricName string) (int64, bool) {
+func (db *DBStorage) GetCounter(ctx context.Context, metricName string) (int64, bool) {
 	var counter Counter
 	q := `SELECT id, value FROM public.counter WHERE id = $1;`
-	err := db.Pool.QueryRow(context.Background(), q, metricName).Scan(&counter.ID, &counter.Value)
+	err := db.Pool.QueryRow(ctx, q, metricName).Scan(&counter.ID, &counter.Value)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, false
 	} else if err != nil {
@@ -159,10 +159,10 @@ func (db *DBStorage) GetCounter(metricName string) (int64, bool) {
 	}
 }
 
-func (db *DBStorage) GetAllGauges() map[string]float64 {
+func (db *DBStorage) GetAllGauges(ctx context.Context) map[string]float64 {
 	var gauges = make(map[string]float64)
 	q := `SELECT id, value FROM public.gauge;`
-	rows, err := db.Pool.Query(context.Background(), q)
+	rows, err := db.Pool.Query(ctx, q)
 	if err != nil {
 		log.Printf("Can't get all gauges: %v", err)
 		return nil
@@ -181,10 +181,10 @@ func (db *DBStorage) GetAllGauges() map[string]float64 {
 	return gauges
 }
 
-func (db *DBStorage) GetAllCounters() map[string]int64 {
+func (db *DBStorage) GetAllCounters(ctx context.Context) map[string]int64 {
 	var counters = make(map[string]int64)
 	q := `SELECT id, value FROM public.counter;`
-	rows, err := db.Pool.Query(context.Background(), q)
+	rows, err := db.Pool.Query(ctx, q)
 	if err != nil {
 		log.Printf("Can't get all gauges: %v", err)
 		return nil
