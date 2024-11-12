@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func SetupRouter(storage storage.Interface) *chi.Mux {
+func SetupRouter(storage storage.MetricsStorage) *chi.Mux {
 	h := handlers.NewHandler(storage)
 	chiRouter := chi.NewRouter()
 	chiRouter.Use(logger.LoggingMiddleware)

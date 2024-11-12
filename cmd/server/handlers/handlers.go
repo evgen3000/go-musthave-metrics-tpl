@@ -13,10 +13,10 @@ import (
 )
 
 type Handler struct {
-	Storage storage.Interface
+	Storage storage.MetricsStorage
 }
 
-func NewHandler(storage storage.Interface) *Handler {
+func NewHandler(storage storage.MetricsStorage) *Handler {
 	return &Handler{Storage: storage}
 }
 

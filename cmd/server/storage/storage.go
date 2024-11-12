@@ -12,7 +12,7 @@ import (
 	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
 )
 
-type Interface interface {
+type MetricsStorage interface {
 	StorageType() string
 	SetMetrics(ctx context.Context, dto []dto.MetricsDTO)
 	SetGauge(ctx context.Context, metricName string, value float64)
@@ -30,9 +30,9 @@ type Config struct {
 	Database        string
 }
 
-func NewStorage(config Config, fm *filemanager.FileManager) (Interface, error) {
+func NewStorage(config Config, fm *filemanager.FileManager) (MetricsStorage, error) {
 	if config.Database == "" {
-		var storage Interface = &memstorage.MemStorage{
+		var storage MetricsStorage = &memstorage.MemStorage{
 			Gauges:   make(map[string]float64),
 			Counters: make(map[string]int64),
 		}
@@ -45,7 +45,7 @@ func NewStorage(config Config, fm *filemanager.FileManager) (Interface, error) {
 		return storage, nil
 	} else {
 		pool := postgres.Connect(config.Database)
-		var storage Interface = &dbstorage.DBStorage{Pool: pool}
+		var storage MetricsStorage = &dbstorage.DBStorage{Pool: pool}
 		return storage, nil
 	}
 
