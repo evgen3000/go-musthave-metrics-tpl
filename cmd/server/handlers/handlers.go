@@ -32,12 +32,14 @@ func (h *Handler) Ping(rw http.ResponseWriter, _ *http.Request) {
 func (h *Handler) HomeHandler(rw http.ResponseWriter, _ *http.Request) {
 	var body strings.Builder
 	body.WriteString("<h4>Gauges</h4>")
-	for gaugeName, value := range h.Storage.GetAllGauges(context.Background()) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	for gaugeName, value := range h.Storage.GetAllGauges(ctx) {
 		body.WriteString(gaugeName + ": " + strconv.FormatFloat(value, 'f', -1, 64) + "</br>")
 	}
 	body.WriteString("<h4>Counters</h4>")
 
-	for counterName, value := range h.Storage.GetAllCounters(context.Background()) {
+	for counterName, value := range h.Storage.GetAllCounters(ctx) {
 		body.WriteString(counterName + ": " + strconv.FormatInt(value, 10) + "</br>")
 	}
 	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
