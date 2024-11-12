@@ -12,6 +12,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+//postgresql://admin:admin@localhost:5432/admin?schema=public
+
 func Connect(dsn string) *pgxpool.Pool {
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
@@ -40,8 +42,8 @@ func Connect(dsn string) *pgxpool.Pool {
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations", // Путь к папке с миграциями
-		"postgres",          // Имя базы данных
+		"migrations/",
+		"admin",
 		driver,
 	)
 	if err != nil {
