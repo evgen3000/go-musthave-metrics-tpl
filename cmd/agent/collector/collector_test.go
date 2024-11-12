@@ -1,65 +1,35 @@
 package collector_test
 
 import (
-	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"strconv"
-	"strings"
+	"context"
 	"testing"
+	"time"
 
+	"evgen3000/go-musthave-metrics-tpl.git/cmd/agent/collector"
+	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAgentSendMetrics(t *testing.T) {
-	// Создаем фейковый сервер
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Проверяем, что URL имеет правильный формат
-		assert.Contains(t, r.URL.Path, "/update/", "Incorrect URL path")
-
-		// Проверяем, что запрос содержит правильные метрики
-		pathParts := strings.Split(r.URL.Path, "/")
-		assert.Len(t, pathParts, 5, "URL path should have 5 parts")
-
-		metricType := pathParts[2]
-		metricName := pathParts[3]
-		metricValue := pathParts[4]
-
-		// Проверяем тип и значение метрики
-		assert.Equal(t, "gauge", metricType, "Metric type should be 'gauge'")
-		assert.Equal(t, "testMetric", metricName, "Metric name should be 'testMetric'")
-		assert.Equal(t, "42.5", metricValue, "Metric value should be '42.5'")
-
-		// Возвращаем 200 OK
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	// Переопределим метод sendMetrics, чтобы он отправлял запросы на наш тестовый сервер
-	sendMetrics := func(metricType, metricName string, value float64) {
-		metricValue := strconv.FormatFloat(value, 'f', -1, 64)
-		url := fmt.Sprintf("%s/update/%s/%s/%s", server.URL, metricType, metricName, metricValue)
-		req, err := http.NewRequest(http.MethodPost, url, nil)
-		if err != nil {
-			t.Fatalf("Error creating request: %v", err)
-		}
-
-		req.Header.Set("Content-Type", "text/plain")
-
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatalf("Error sending request: %v", err)
-		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				fmt.Printf("Error closing response body: %v\n", err)
-			}
-		}()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200 OK")
+func TestGenerateJSON(t *testing.T) {
+	metrics := []dto.MetricsDTO{
+		{ID: "testMetric", MType: "gauge", Value: func(v float64) *float64 { return &v }(42.42)},
 	}
+	jsonData := collector.GenerateJSON(metrics)
 
-	// Вызов отправки метрики
-	sendMetrics("gauge", "testMetric", 42.5)
+	expected := `[{"id":"testMetric","type":"gauge","value":42.42}]`
+	assert.JSONEq(t, expected, string(jsonData))
+}
+
+func TestAgentConfig_PoolCount(t *testing.T) {
+	host := "http://localhost"
+	pollInterval := 100 * time.Millisecond
+	reportInterval := 200 * time.Millisecond
+	agent := collector.NewAgent(host, pollInterval, reportInterval)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	agent.Start(ctx)
+
+	assert.True(t, agent.PoolCount > 0, "Expected PoolCount to be greater than 0")
 }
