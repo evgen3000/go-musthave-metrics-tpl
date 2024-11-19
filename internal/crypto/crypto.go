@@ -22,7 +22,7 @@ type Crypto struct {
 func (c *Crypto) HashValidationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		if c.Key == "" {
+		if c.Key == "" || r.Header.Get("HashSHA256") == "" {
 			next.ServeHTTP(w, r)
 			return
 		}
