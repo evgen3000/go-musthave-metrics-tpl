@@ -13,19 +13,22 @@ func SetupRouter(storage storage.MetricsStorage, key string) *chi.Mux {
 	h := handlers.NewHandler(storage)
 	c := crypto.Crypto{Key: key}
 	chiRouter := chi.NewRouter()
+	chiRouter.Use(compressor.GzipMiddleware)
 	chiRouter.Use(logger.LoggingMiddleware)
-	chiRouter.With(compressor.GzipMiddleware).With(c.HashValidationMiddleware).With(logger.LoggingMiddleware).Route("/update", func(r chi.Router) {
+
+	chiRouter.With(c.HashValidationMiddleware).Route("/update", func(r chi.Router) {
 		r.Post("/", h.UpdateMetricHandlerJSON)
 		r.Post("/{metricType}/{metricName}/{metricValue}", h.UpdateMetricHandlerText)
 	})
-	chiRouter.With(compressor.GzipMiddleware).With(c.HashValidationMiddleware).With(logger.LoggingMiddleware).Post("/updates/", h.UpdateMetrics)
 
-	chiRouter.With(compressor.GzipMiddleware).Route("/value", func(r chi.Router) {
+	chiRouter.With(c.HashValidationMiddleware).Post("/updates/", h.UpdateMetrics)
+
+	chiRouter.Route("/value", func(r chi.Router) {
 		r.Post("/", h.GetMetricHandlerJSON)
 		r.Get("/{metricType}/{metricName}", h.GetMetricHandlerText)
 	})
 
-	chiRouter.With(compressor.GzipMiddleware).Get("/", h.HomeHandler)
+	chiRouter.Get("/", h.HomeHandler)
 
 	chiRouter.Get("/ping", h.Ping)
 
