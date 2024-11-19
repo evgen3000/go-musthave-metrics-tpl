@@ -13,16 +13,12 @@ func SetupRouter(storage storage.MetricsStorage, key string) *chi.Mux {
 	h := handlers.NewHandler(storage)
 	c := crypto.Crypto{Key: key}
 	chiRouter := chi.NewRouter()
-	chiRouter.Use(c.HashValidationMiddleware)
-	chiRouter.Use(compressor.GzipMiddleware)
 	chiRouter.Use(logger.LoggingMiddleware)
-
-	chiRouter.Route("/update", func(r chi.Router) {
+	chiRouter.With(c.HashValidationMiddleware).With(compressor.GzipMiddleware).With(logger.LoggingMiddleware).Route("/update", func(r chi.Router) {
 		r.Post("/", h.UpdateMetricHandlerJSON)
 		r.Post("/{metricType}/{metricName}/{metricValue}", h.UpdateMetricHandlerText)
 	})
-
-	chiRouter.Post("/updates/", h.UpdateMetrics)
+	chiRouter.With(c.HashValidationMiddleware).With(compressor.GzipMiddleware).With(logger.LoggingMiddleware).Post("/updates/", h.UpdateMetrics)
 
 	chiRouter.Route("/value", func(r chi.Router) {
 		r.Post("/", h.GetMetricHandlerJSON)
