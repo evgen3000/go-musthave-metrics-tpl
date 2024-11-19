@@ -44,7 +44,7 @@ func (hc *HTTPClient) SendMetrics(data []byte) {
 		return
 	}
 
-	hash := crypto.GenerateHash(buf.Bytes(), hc.key)
+	hash := crypto.GenerateHash(data, hc.key)
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
