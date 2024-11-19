@@ -25,7 +25,7 @@ func SetupRouter(storage storage.MetricsStorage, key string) *chi.Mux {
 		r.Get("/{metricType}/{metricName}", h.GetMetricHandlerText)
 	})
 
-	chiRouter.Get("/", h.HomeHandler)
+	chiRouter.With(compressor.GzipMiddleware).Get("/", h.HomeHandler)
 
 	chiRouter.Get("/ping", h.Ping)
 
