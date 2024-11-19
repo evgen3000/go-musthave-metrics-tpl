@@ -1,38 +1,45 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
-	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/memstorage"
+	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage"
 	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
 	"github.com/go-chi/chi/v5"
 )
 
-const (
-	MetricTypeCounter = "counter"
-	MetricTypeGauge   = "gauge"
-)
-
 type Handler struct {
-	Storage *memstorage.MemStorage
+	Storage storage.MetricsStorage
 }
 
-func NewHandler(storage *memstorage.MemStorage) *Handler {
-	return &Handler{storage}
+func NewHandler(storage storage.MetricsStorage) *Handler {
+	return &Handler{Storage: storage}
+}
+
+func (h *Handler) Ping(rw http.ResponseWriter, _ *http.Request) {
+	if h.Storage.StorageType() == "db" {
+		rw.WriteHeader(http.StatusOK)
+	} else {
+		rw.WriteHeader(http.StatusInternalServerError)
+	}
 }
 
 func (h *Handler) HomeHandler(rw http.ResponseWriter, _ *http.Request) {
 	var body strings.Builder
 	body.WriteString("<h4>Gauges</h4>")
-	for gaugeName, value := range h.Storage.GetAllGauges() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	for gaugeName, value := range h.Storage.GetAllGauges(ctx) {
 		body.WriteString(gaugeName + ": " + strconv.FormatFloat(value, 'f', -1, 64) + "</br>")
 	}
 	body.WriteString("<h4>Counters</h4>")
 
-	for counterName, value := range h.Storage.GetAllCounters() {
+	for counterName, value := range h.Storage.GetAllCounters(ctx) {
 		body.WriteString(counterName + ": " + strconv.FormatInt(value, 10) + "</br>")
 	}
 	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -53,9 +60,9 @@ func (h *Handler) UpdateMetricHandlerJSON(rw http.ResponseWriter, r *http.Reques
 		return
 	}
 	switch body.MType {
-	case MetricTypeCounter:
-		h.Storage.IncrementCounter(body.ID, *body.Delta)
-		value, _ := h.Storage.GetCounter(body.ID)
+	case dto.MetricTypeCounter:
+		h.Storage.IncrementCounter(context.Background(), body.ID, *body.Delta)
+		value, _ := h.Storage.GetCounter(context.Background(), body.ID)
 
 		jsonBody, err := json.Marshal(dto.MetricsDTO{ID: body.ID, MType: body.MType, Delta: &value})
 		if err != nil {
@@ -67,9 +74,9 @@ func (h *Handler) UpdateMetricHandlerJSON(rw http.ResponseWriter, r *http.Reques
 		}
 		rw.WriteHeader(http.StatusOK)
 		return
-	case MetricTypeGauge:
-		h.Storage.SetGauge(body.ID, *body.Value)
-		value, _ := h.Storage.GetGauge(body.ID)
+	case dto.MetricTypeGauge:
+		h.Storage.SetGauge(context.Background(), body.ID, *body.Value)
+		value, _ := h.Storage.GetGauge(context.Background(), body.ID)
 
 		jsonBody, err := json.Marshal(dto.MetricsDTO{ID: body.ID, MType: body.MType, Value: &value})
 		if err != nil {
@@ -92,18 +99,18 @@ func (h *Handler) UpdateMetricHandlerText(rw http.ResponseWriter, r *http.Reques
 	metricValue := chi.URLParam(r, "metricValue")
 
 	switch metricType {
-	case MetricTypeCounter:
+	case dto.MetricTypeCounter:
 		value, err := strconv.ParseInt(metricValue, 10, 64)
 		if err != nil {
 			http.Error(rw, "Bad request", http.StatusBadRequest)
 		}
-		h.Storage.IncrementCounter(metricName, value)
-	case MetricTypeGauge:
+		h.Storage.IncrementCounter(context.Background(), metricName, value)
+	case dto.MetricTypeGauge:
 		value, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
 			http.Error(rw, "Bad request", http.StatusBadRequest)
 		}
-		h.Storage.SetGauge(metricName, value)
+		h.Storage.SetGauge(context.Background(), metricName, value)
 	default:
 		http.Error(rw, "Bad request", http.StatusBadRequest)
 	}
@@ -120,13 +127,13 @@ func (h *Handler) GetMetricHandlerJSON(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if body.MType != MetricTypeGauge && body.MType != MetricTypeCounter {
+	if body.MType != dto.MetricTypeGauge && body.MType != dto.MetricTypeCounter {
 		http.Error(rw, "Invalid metric type", http.StatusBadRequest)
 		return
 	}
 
-	if body.MType == MetricTypeGauge {
-		value, exists := h.Storage.GetGauge(body.ID)
+	if body.MType == dto.MetricTypeGauge {
+		value, exists := h.Storage.GetGauge(context.Background(), body.ID)
 
 		if !exists {
 			http.Error(rw, "Metric not found", http.StatusNotFound)
@@ -140,7 +147,7 @@ func (h *Handler) GetMetricHandlerJSON(rw http.ResponseWriter, r *http.Request) 
 			return
 		}
 	} else {
-		value, exists := h.Storage.GetCounter(body.ID)
+		value, exists := h.Storage.GetCounter(context.Background(), body.ID)
 		if !exists {
 			http.Error(rw, "Metric not found", http.StatusNotFound)
 			return
@@ -163,12 +170,12 @@ func (h *Handler) GetMetricHandlerText(rw http.ResponseWriter, r *http.Request) 
 	metricType := chi.URLParam(r, "metricType")
 	metricName := chi.URLParam(r, "metricName")
 
-	if metricType != MetricTypeGauge && metricType != MetricTypeCounter {
+	if metricType != dto.MetricTypeGauge && metricType != dto.MetricTypeCounter {
 		http.Error(rw, "Invalid metric type", http.StatusBadRequest)
 	}
 
-	if metricType == MetricTypeGauge {
-		value, exists := h.Storage.GetGauge(metricName)
+	if metricType == dto.MetricTypeGauge {
+		value, exists := h.Storage.GetGauge(context.Background(), metricName)
 		if !exists {
 			http.Error(rw, "Metric not found", http.StatusNotFound)
 		}
@@ -178,7 +185,7 @@ func (h *Handler) GetMetricHandlerText(rw http.ResponseWriter, r *http.Request) 
 			http.Error(rw, "Write failed", http.StatusBadRequest)
 		}
 	} else {
-		value, exists := h.Storage.GetCounter(metricName)
+		value, exists := h.Storage.GetCounter(context.Background(), metricName)
 		if !exists {
 			http.Error(rw, "Metric not found", http.StatusNotFound)
 		}
@@ -188,4 +195,18 @@ func (h *Handler) GetMetricHandlerText(rw http.ResponseWriter, r *http.Request) 
 			http.Error(rw, "Write failed", http.StatusBadRequest)
 		}
 	}
+}
+
+func (h *Handler) UpdateMetrics(rw http.ResponseWriter, r *http.Request) {
+	var body []dto.MetricsDTO
+	rw.Header().Set("Content-Type", "application/json")
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	h.Storage.SetMetrics(ctx, body)
+	defer cancel()
+	rw.WriteHeader(http.StatusOK)
 }

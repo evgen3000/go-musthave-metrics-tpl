@@ -2,13 +2,23 @@ package collector
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/agent/httpclient"
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/agent/metrics"
 	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
 )
+
+func GenerateJSON(m []dto.MetricsDTO) []byte {
+	body, err := json.Marshal(m)
+	if err != nil {
+		log.Fatal("Conversion have errors:", err.Error())
+	}
+	return body
+}
 
 type AgentConfig struct {
 	host           string
@@ -44,19 +54,16 @@ func (a *AgentConfig) Start(ctx context.Context) {
 		case <-pollTicker.C:
 			a.PoolCount++
 			collectedMetrics := a.collector.CollectMetrics()
-			collectedMetrics = append(collectedMetrics, metrics.GenerateJSON(dto.MetricsDTO{ID: "PollCount", MType: "counter", Delta: &a.PoolCount}))
-			var jsonSlice []string
-			for _, m := range collectedMetrics {
-				jsonSlice = append(jsonSlice, string(m))
-			}
-			fmt.Println("Metrics collected:", jsonSlice)
+			collectedMetrics = append(collectedMetrics, dto.MetricsDTO{ID: "PollCount", MType: "counter", Delta: &a.PoolCount})
+			var jsonSlice = GenerateJSON(collectedMetrics)
+			fmt.Println("Metrics collected:", string(jsonSlice))
 		case <-reportTicker.C:
 			collectedMetrics := a.collector.CollectMetrics()
-			collectedMetrics = append(collectedMetrics, metrics.GenerateJSON(dto.MetricsDTO{ID: "PollCount", MType: "counter", Delta: &a.PoolCount}))
-			for _, data := range collectedMetrics {
-				a.httpClient.SendMetrics(data)
-				fmt.Println("Reported: ", string(data))
-			}
+			collectedMetrics = append(collectedMetrics, dto.MetricsDTO{ID: "PollCount", MType: "counter", Delta: &a.PoolCount})
+			data := GenerateJSON(collectedMetrics)
+			a.httpClient.SendMetrics(data)
+			fmt.Println("Reported: ", string(data))
+
 		}
 	}
 }

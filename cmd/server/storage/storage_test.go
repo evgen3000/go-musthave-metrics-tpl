@@ -1,34 +1,58 @@
-package storage
+package storage_test
 
 import (
+	"fmt"
+	"os"
 	"testing"
+	"time"
 
-	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/filemanager"
+	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage"
+	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/memstorage"
+	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/memstorage/filemanager"
 	"github.com/stretchr/testify/assert"
 )
 
-var StorageConfig = MemStorageConfig{
-	StoreInterval:   300,
-	FileStoragePath: "storage.json",
-	Restore:         true,
+func TestNewStorage_MemoryStorage(t *testing.T) {
+	config := storage.Config{
+		StoreInterval:   time.Second,
+		FileStoragePath: "./test_storage.json",
+		Restore:         true,
+		Database:        "",
+	}
+	fm := &filemanager.FileManager{}
+
+	storageInstance, err := storage.NewStorage(config, fm)
+	assert.NoError(t, err)
+	assert.NotNil(t, storageInstance)
+	assert.Equal(t, "ms", storageInstance.StorageType())
 }
 
-func TestMemStorageSetAndGetGauge(t *testing.T) {
-	fm := filemanager.FileManager{}
-	s := NewMemStorage(StorageConfig, &fm)
-	s.SetGauge("temperature", 23.5)
+func TestNewStorage_MemoryStorageWithRestore(t *testing.T) {
+	filePath := "./empty_test_data.json"
+	defer func() {
+		err := os.Remove(filePath)
+		if err != nil {
+			fmt.Println("Cant remove file: " + filePath)
+		}
+	}()
 
-	value, exists := s.GetGauge("temperature")
-	assert.True(t, exists)
-	assert.Equal(t, 23.5, value)
-}
-func TestMemStorage_IncrementCounter(t *testing.T) {
-	fm := filemanager.FileManager{}
-	s := NewMemStorage(StorageConfig, &fm)
-	s.IncrementCounter("hits", 10)
-	s.IncrementCounter("hits", 5)
+	_, err := os.Create(filePath)
+	assert.NoError(t, err, "Failed to create empty test data file.")
 
-	value, exists := s.GetCounter("hits")
-	assert.True(t, exists)
-	assert.Equal(t, int64(15), value)
+	fm := &filemanager.FileManager{}
+
+	config := storage.Config{
+		FileStoragePath: filePath,
+		Restore:         true,
+	}
+
+	storageInstance, err := storage.NewStorage(config, fm)
+	assert.NoError(t, err, "Expected no error when creating storage instance with empty restore file.")
+
+	assert.NotNil(t, storageInstance, "Storage instance should not be nil.")
+
+	memStorage, ok := storageInstance.(*memstorage.MemStorage)
+	assert.True(t, ok, "Storage instance should be of type *memstorage.MemStorage.")
+	assert.Empty(t, memStorage.Gauges, "Gauges should be empty after restoration from an empty file.")
+	assert.Empty(t, memStorage.Counters, "Counters should be empty after restoration from an empty file.")
 }

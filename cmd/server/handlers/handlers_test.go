@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,7 +10,7 @@ import (
 
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/handlers"
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage"
-	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/filemanager"
+	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/memstorage/filemanager"
 	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
@@ -17,11 +18,15 @@ import (
 
 func setupHandler() *handlers.Handler {
 	fm := filemanager.FileManager{}
-	memStorage := storage.NewMemStorage(storage.MemStorageConfig{
+	memStorage, err := storage.NewStorage(storage.Config{
 		StoreInterval:   5,
 		FileStoragePath: "storage.json",
 		Restore:         false,
+		Database:        "",
 	}, &fm)
+	if err != nil {
+		panic(err)
+	}
 	return handlers.NewHandler(memStorage)
 }
 
@@ -44,7 +49,7 @@ func TestUpdateMetricHandlerJSON(t *testing.T) {
 	// Test for Counter metric
 	counterMetric := dto.MetricsDTO{
 		ID:    "test_counter",
-		MType: handlers.MetricTypeCounter,
+		MType: dto.MetricTypeCounter,
 		Delta: new(int64),
 	}
 	*counterMetric.Delta = 42
@@ -64,7 +69,7 @@ func TestUpdateMetricHandlerJSON(t *testing.T) {
 	// Test for Gauge metric
 	gaugeMetric := dto.MetricsDTO{
 		ID:    "test_gauge",
-		MType: handlers.MetricTypeGauge,
+		MType: dto.MetricTypeGauge,
 		Value: new(float64),
 	}
 	*gaugeMetric.Value = 3.14
@@ -109,11 +114,11 @@ func TestUpdateMetricHandlerText(t *testing.T) {
 func TestGetMetricHandlerJSON(t *testing.T) {
 	h := setupHandler()
 
-	h.Storage.SetGauge("test_gauge", 3.14)
+	h.Storage.SetGauge(context.Background(), "test_gauge", 3.14)
 
 	metric := dto.MetricsDTO{
 		ID:    "test_gauge",
-		MType: handlers.MetricTypeGauge,
+		MType: dto.MetricTypeGauge,
 	}
 	body, err := json.Marshal(metric)
 	assert.NoError(t, err)
@@ -131,8 +136,7 @@ func TestGetMetricHandlerJSON(t *testing.T) {
 func TestGetMetricHandlerText(t *testing.T) {
 	h := setupHandler()
 
-	// Add a metric to the storage for testing
-	h.Storage.SetGauge("test_gauge", 3.14)
+	h.Storage.SetGauge(context.Background(), "test_gauge", 3.14)
 
 	req, err := http.NewRequest(http.MethodGet, "/value/gauge/test_gauge", nil)
 	assert.NoError(t, err)
