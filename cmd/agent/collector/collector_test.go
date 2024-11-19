@@ -24,7 +24,7 @@ func TestAgentConfig_PoolCount(t *testing.T) {
 	host := "http://localhost"
 	pollInterval := 100 * time.Millisecond
 	reportInterval := 200 * time.Millisecond
-	agent := collector.NewAgent(host, pollInterval, reportInterval)
+	agent := collector.NewAgent(host, pollInterval, reportInterval, "123")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()

@@ -41,7 +41,7 @@ func TestHTTPClient_SendMetrics(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := httpclient.NewHTTPClient(server.Listener.Addr().String())
+	client := httpclient.NewHTTPClient(server.Listener.Addr().String(), "123")
 
 	data := `[{"id":"testMetric","type":"gauge","value":42.42}]`
 	client.SendMetrics([]byte(data))
