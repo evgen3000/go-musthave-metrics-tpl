@@ -69,6 +69,7 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		contentType := r.Header.Get("Content-Type")
 
 		logger.Info("HTTP request",
+			zap.String("SHA256", r.Header.Get("HashSHA256")),
 			zap.String("method", r.Method),
 			zap.String("url", r.URL.String()),
 			zap.String("Content-Type", contentType),
