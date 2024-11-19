@@ -21,7 +21,7 @@ func SetupRouter(storage storage.MetricsStorage, key string) *chi.Mux {
 	chiRouter.With(c.HashValidationMiddleware).With(compressor.GzipMiddleware).With(logger.LoggingMiddleware).Post("/updates/", h.UpdateMetrics)
 
 	chiRouter.Route("/value", func(r chi.Router) {
-		r.Post("/", h.GetMetricHandlerJSON)
+		r.With(compressor.GzipMiddleware).Post("/", h.GetMetricHandlerJSON)
 		r.Get("/{metricType}/{metricName}", h.GetMetricHandlerText)
 	})
 
