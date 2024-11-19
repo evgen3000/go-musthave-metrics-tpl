@@ -30,6 +30,6 @@ func GetServerConfig() *Config {
 		StoreInterval: time.Duration(utils.GetIntValue("STORE_INTERVAL", *storeIntervalFlag)) * time.Second,
 		Restore:       utils.GetBoolValue("RESTORE", *restoreFlag),
 		Database:      utils.GetStringValue("DATABASE_DSN", *databaseURL),
-		CryptoKey:     *cryptoKey,
+		CryptoKey:     utils.GetStringValue("KEY", *cryptoKey),
 	}
 }

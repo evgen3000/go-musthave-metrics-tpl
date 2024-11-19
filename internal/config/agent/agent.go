@@ -24,6 +24,6 @@ func GetAgentConfig() *Config {
 		PoolInterval:   utils.GetIntValue("POLL_INTERVAL", *pollIntervalFlag),
 		ReportInterval: utils.GetIntValue("REPORT_INTERVAL", *reportIntervalFlag),
 		Host:           utils.GetStringValue("ADDRESS", *hostFlag),
-		CryptoKey:      *cryptoKey,
+		CryptoKey:      utils.GetStringValue("KEY", *cryptoKey),
 	}
 }
