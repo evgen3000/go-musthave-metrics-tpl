@@ -26,24 +26,24 @@ func runServer(config *server.Config, router *chi.Mux) {
 }
 
 func main() {
-	c := server.GetServerConfig()
+	conf := server.GetServerConfig()
 	fm := filemanager.FileManager{}
 	s, err := storage.NewStorage(storage.Config{
-		StoreInterval:   c.StoreInterval,
-		FileStoragePath: c.FilePath,
-		Restore:         c.Restore,
-		Database:        c.Database,
+		StoreInterval:   conf.StoreInterval,
+		FileStoragePath: conf.FilePath,
+		Restore:         conf.Restore,
+		Database:        conf.Database,
 	}, &fm)
 	if err != nil {
 		log.Fatal(errors.Unwrap(err))
 	}
-	r := router.SetupRouter(s)
+	r := router.SetupRouter(s, conf.CryptoKey)
 
-	ticker := time.NewTicker(c.StoreInterval)
+	ticker := time.NewTicker(conf.StoreInterval)
 	defer ticker.Stop()
 	go func() {
 		for range ticker.C {
-			if err := fm.SaveData(c.FilePath, s); err != nil {
+			if err := fm.SaveData(conf.FilePath, s); err != nil {
 				log.Fatal("Can't to save data to storage.json")
 			} else {
 				log.Println("Saved data")
@@ -51,5 +51,5 @@ func main() {
 		}
 	}()
 
-	runServer(c, r)
+	runServer(conf, r)
 }

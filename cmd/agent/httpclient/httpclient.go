@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"evgen3000/go-musthave-metrics-tpl.git/internal/crypto"
 )
 
 type HTTPClient struct {
 	host string
+	key  string
 }
 
 func NewHTTPClient(host string) *HTTPClient {
@@ -35,6 +38,8 @@ func (hc *HTTPClient) SendMetrics(data []byte) {
 		fmt.Println("Error closing gzip writer:", err)
 	}
 
+	hash := crypto.GenerateHash(buf.Bytes(), hc.key)
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, &buf)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
@@ -42,6 +47,8 @@ func (hc *HTTPClient) SendMetrics(data []byte) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("HashSHA256", hash)
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
