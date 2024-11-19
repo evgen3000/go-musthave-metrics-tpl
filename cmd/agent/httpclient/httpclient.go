@@ -16,8 +16,8 @@ type HTTPClient struct {
 	key  string
 }
 
-func NewHTTPClient(host string) *HTTPClient {
-	return &HTTPClient{host: host}
+func NewHTTPClient(host string, key string) *HTTPClient {
+	return &HTTPClient{host: host, key: key}
 }
 
 func (hc *HTTPClient) SendMetrics(data []byte) {
@@ -38,8 +38,7 @@ func (hc *HTTPClient) SendMetrics(data []byte) {
 		fmt.Println("Error closing gzip writer:", err)
 	}
 
-	hash := crypto.GenerateHash(buf.Bytes(), hc.key)
-
+	hash := crypto.GenerateHash(data, hc.key)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, &buf)
 	if err != nil {
 		fmt.Println("Error creating request:", err)

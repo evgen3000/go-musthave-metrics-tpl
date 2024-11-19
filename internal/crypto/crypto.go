@@ -34,10 +34,7 @@ func (c *Crypto) HashValidationMiddleware(next http.Handler) http.Handler {
 		}
 
 		r.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
-
-		h := hmac.New(sha256.New, []byte(c.Key))
-		h.Write(bodyBytes)
-		expectedHash := hex.EncodeToString(h.Sum(nil))
+		expectedHash := GenerateHash(bodyBytes, c.Key)
 
 		receivedHash := r.Header.Get("HashSHA256")
 		if receivedHash != expectedHash {
