@@ -38,12 +38,14 @@ func (hc *HTTPClient) SendMetrics(data []byte) {
 		fmt.Println("Error closing gzip writer:", err)
 	}
 
-	hash := crypto.GenerateHash(data, hc.key)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, &buf)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return
 	}
+
+	hash := crypto.GenerateHash(buf.Bytes(), hc.key)
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("HashSHA256", hash)
