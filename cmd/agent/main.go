@@ -24,6 +24,6 @@ func main() {
 	}()
 
 	c := config.GetAgentConfig()
-	agent := collector.NewAgent(c.Host, time.Duration(c.PoolInterval)*time.Second, time.Duration(c.ReportInterval)*time.Second)
+	agent := collector.NewAgent(c.Host, time.Duration(c.PoolInterval)*time.Second, time.Duration(c.ReportInterval)*time.Second, c.CryptoKey)
 	agent.Start(ctx)
 }

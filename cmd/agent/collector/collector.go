@@ -27,16 +27,17 @@ type AgentConfig struct {
 	PoolCount      int64
 	collector      *metrics.Collector
 	httpClient     *httpclient.HTTPClient
+	CryptoKey      string
 }
 
-func NewAgent(host string, pollInterval, reportInterval time.Duration) *AgentConfig {
+func NewAgent(host string, pollInterval, reportInterval time.Duration, key string) *AgentConfig {
 	return &AgentConfig{
 		host:           host,
 		pollInterval:   pollInterval,
 		reportInterval: reportInterval,
 		PoolCount:      0,
 		collector:      metrics.NewMetricsCollector(),
-		httpClient:     httpclient.NewHTTPClient(host),
+		httpClient:     httpclient.NewHTTPClient(host, key),
 	}
 }
 
