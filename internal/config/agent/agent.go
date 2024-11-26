@@ -17,7 +17,7 @@ type Config struct {
 func GetAgentConfig() *Config {
 	reportIntervalFlag := flag.Int("r", 10, "Report interval in seconds.")
 	pollIntervalFlag := flag.Int("p", 2, "Pool interval in seconds.")
-	rateLimit := flag.Int("l", 10, "Rate limit in seconds.")
+	rateLimit := flag.Int("l", 2, "Rate limit in seconds.")
 	hostFlag := flag.String("a", "localhost:8080", "Host IP address and port.")
 	cryptoKey := flag.String("k", "", "AES encryption key.")
 

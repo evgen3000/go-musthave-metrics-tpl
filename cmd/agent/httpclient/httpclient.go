@@ -23,7 +23,7 @@ func NewHTTPClient(host string, key string) *HTTPClient {
 func (hc *HTTPClient) SendMetrics(data []byte) {
 	url := fmt.Sprintf("http://%s/updates/", hc.host)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
 	var buf bytes.Buffer
