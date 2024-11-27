@@ -79,6 +79,7 @@ func (h *Handler) UpdateMetrics(rw http.ResponseWriter, r *http.Request) {
 
 // UpdateMetricHandlerJSON обрабатывает обновление одной метрики через JSON.
 func (h *Handler) UpdateMetricHandlerJSON(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
 	var body dto.MetricsDTO
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
@@ -139,6 +140,7 @@ func (h *Handler) UpdateMetricHandlerText(rw http.ResponseWriter, r *http.Reques
 // GetMetricHandlerJSON обрабатывает запрос на получение метрики через JSON.
 func (h *Handler) GetMetricHandlerJSON(rw http.ResponseWriter, r *http.Request) {
 	var body dto.MetricsDTO
+	rw.Header().Set("Content-Type", "application/json")
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
