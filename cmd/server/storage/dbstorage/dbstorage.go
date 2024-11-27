@@ -31,8 +31,6 @@ func (db *DBStorage) StorageType() string {
 }
 
 func (db *DBStorage) InsertOrUpdateGauge(ctx context.Context, metricID string, value float64) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	q := `INSERT INTO public.gauge (id, value)
 			VALUES ($1, $2)
 			ON CONFLICT (id) DO UPDATE
@@ -42,8 +40,6 @@ func (db *DBStorage) InsertOrUpdateGauge(ctx context.Context, metricID string, v
 }
 
 func (db *DBStorage) InsertOrUpdateCounter(ctx context.Context, metricID string, delta int64) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	q := `INSERT INTO public.counter (id, value)
 			VALUES ($1, $2)
 			ON CONFLICT (id) DO UPDATE
@@ -53,8 +49,6 @@ func (db *DBStorage) InsertOrUpdateCounter(ctx context.Context, metricID string,
 }
 
 func (db *DBStorage) SetMetrics(ctx context.Context, metrics []dto.MetricsDTO) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	tx, err := db.Pool.Begin(context.Background())
 	if err != nil {
 		log.Printf("Error starting transaction: %s", err)
@@ -91,8 +85,6 @@ func (db *DBStorage) SetMetrics(ctx context.Context, metrics []dto.MetricsDTO) {
 }
 
 func (db *DBStorage) SetGauge(ctx context.Context, metricName string, value float64) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	var gauge Gauge
 	q := `SELECT id, value FROM public.gauge WHERE id = $1;`
 	err := db.Pool.QueryRow(ctx, q, metricName).Scan(&gauge.ID, &gauge.Value)
@@ -117,8 +109,6 @@ func (db *DBStorage) SetGauge(ctx context.Context, metricName string, value floa
 }
 
 func (db *DBStorage) IncrementCounter(ctx context.Context, metricName string, value int64) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	var counter Counter
 
 	q := `SELECT id, value FROM public.counter WHERE id = $1;`
@@ -158,8 +148,6 @@ func (db *DBStorage) GetGauge(ctx context.Context, metricName string) (float64, 
 }
 
 func (db *DBStorage) GetCounter(ctx context.Context, metricName string) (int64, bool) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	var counter Counter
 	q := `SELECT id, value FROM public.counter WHERE id = $1;`
 	err := db.Pool.QueryRow(ctx, q, metricName).Scan(&counter.ID, &counter.Value)
@@ -174,8 +162,6 @@ func (db *DBStorage) GetCounter(ctx context.Context, metricName string) (int64, 
 }
 
 func (db *DBStorage) GetAllGauges(ctx context.Context) map[string]float64 {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	var gauges = make(map[string]float64)
 	q := `SELECT id, value FROM public.gauge;`
 	rows, err := db.Pool.Query(ctx, q)
@@ -198,8 +184,6 @@ func (db *DBStorage) GetAllGauges(ctx context.Context) map[string]float64 {
 }
 
 func (db *DBStorage) GetAllCounters(ctx context.Context) map[string]int64 {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	var counters = make(map[string]int64)
 	q := `SELECT id, value FROM public.counter;`
 	rows, err := db.Pool.Query(ctx, q)
