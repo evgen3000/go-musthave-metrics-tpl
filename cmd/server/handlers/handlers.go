@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -77,7 +78,6 @@ func (h *Handler) UpdateMetrics(rw http.ResponseWriter, r *http.Request) {
 	rw.WriteHeader(http.StatusOK)
 }
 
-// UpdateMetricHandlerJSON обрабатывает обновление одной метрики через JSON.
 func (h *Handler) UpdateMetricHandlerJSON(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	var body dto.MetricsDTO
@@ -89,9 +89,11 @@ func (h *Handler) UpdateMetricHandlerJSON(rw http.ResponseWriter, r *http.Reques
 
 	switch body.MType {
 	case dto.MetricTypeCounter:
+		log.Printf("Update counter")
 		h.WorkerPool.Submit(func() {
 			h.Storage.IncrementCounter(context.Background(), body.ID, *body.Delta)
 		})
+		log.Printf("counter updated")
 	case dto.MetricTypeGauge:
 		h.WorkerPool.Submit(func() {
 			h.Storage.SetGauge(context.Background(), body.ID, *body.Value)
@@ -104,7 +106,6 @@ func (h *Handler) UpdateMetricHandlerJSON(rw http.ResponseWriter, r *http.Reques
 	rw.WriteHeader(http.StatusOK)
 }
 
-// UpdateMetricHandlerText обрабатывает обновление одной метрики через URL параметры.
 func (h *Handler) UpdateMetricHandlerText(rw http.ResponseWriter, r *http.Request) {
 	metricType := chi.URLParam(r, "metricType")
 	metricName := chi.URLParam(r, "metricName")
