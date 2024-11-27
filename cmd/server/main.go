@@ -25,8 +25,7 @@ func main() {
 		log.Fatal("Error initializing storage:", err)
 	}
 
-	// Инициализация пула воркеров
-	workerPool := workerpool.NewWorkerPool(5, 100)
+	workerPool := workerpool.NewWorkerPool(conf.RateLimit, 100)
 
 	r := router.SetupRouter(s, conf.CryptoKey, workerPool)
 
