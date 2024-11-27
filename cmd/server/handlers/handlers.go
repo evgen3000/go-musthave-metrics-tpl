@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,15 +19,11 @@ type Handler struct {
 	WorkerPool *workerpool.WorkerPool
 }
 
-// NewHandler создает новый экземпляр Handler.
 func NewHandler(storage storage.MetricsStorage, workerPool *workerpool.WorkerPool) *Handler {
-	return &Handler{
-		Storage:    storage,
-		WorkerPool: workerPool,
-	}
+
+	return &Handler{Storage: storage, WorkerPool: workerPool}
 }
 
-// Ping проверяет доступность хранилища.
 func (h *Handler) Ping(rw http.ResponseWriter, _ *http.Request) {
 	if h.Storage.StorageType() == "db" {
 		rw.WriteHeader(http.StatusOK)
@@ -37,73 +32,68 @@ func (h *Handler) Ping(rw http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-// HomeHandler отображает все доступные метрики.
 func (h *Handler) HomeHandler(rw http.ResponseWriter, _ *http.Request) {
 	var body strings.Builder
 	body.WriteString("<h4>Gauges</h4>")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
 	for gaugeName, value := range h.Storage.GetAllGauges(ctx) {
 		body.WriteString(gaugeName + ": " + strconv.FormatFloat(value, 'f', -1, 64) + "</br>")
 	}
 	body.WriteString("<h4>Counters</h4>")
+
 	for counterName, value := range h.Storage.GetAllCounters(ctx) {
 		body.WriteString(counterName + ": " + strconv.FormatInt(value, 10) + "</br>")
 	}
-
 	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+
 	_, err := rw.Write([]byte(body.String()))
 	if err != nil {
-		http.Error(rw, "Write failed", http.StatusInternalServerError)
+		http.Error(rw, "Write failed: %v", http.StatusBadRequest)
 	}
-}
-
-// UpdateMetrics обрабатывает обновление метрик через JSON.
-func (h *Handler) UpdateMetrics(rw http.ResponseWriter, r *http.Request) {
-	var metrics []dto.MetricsDTO
-	err := json.NewDecoder(r.Body).Decode(&metrics)
-	if err != nil {
-		http.Error(rw, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Добавляем задачу в пул воркеров
-	h.WorkerPool.Submit(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		h.Storage.SetMetrics(ctx, metrics)
-	})
-
-	rw.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) UpdateMetricHandlerJSON(rw http.ResponseWriter, r *http.Request) {
-	rw.Header().Set("Content-Type", "application/json")
 	var body dto.MetricsDTO
+	rw.Header().Set("Content-Type", "application/json")
+
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	switch body.MType {
 	case dto.MetricTypeCounter:
-		log.Printf("Update counter")
-		h.WorkerPool.Submit(func() {
-			h.Storage.IncrementCounter(context.Background(), body.ID, *body.Delta)
-		})
-		log.Printf("counter updated")
+		h.Storage.IncrementCounter(context.Background(), body.ID, *body.Delta)
+		value, _ := h.Storage.GetCounter(context.Background(), body.ID)
+
+		jsonBody, err := json.Marshal(dto.MetricsDTO{ID: body.ID, MType: body.MType, Delta: &value})
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+		}
+		_, err = rw.Write(jsonBody)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+		}
+		rw.WriteHeader(http.StatusOK)
+		return
 	case dto.MetricTypeGauge:
-		h.WorkerPool.Submit(func() {
-			h.Storage.SetGauge(context.Background(), body.ID, *body.Value)
-		})
+		h.Storage.SetGauge(context.Background(), body.ID, *body.Value)
+		value, _ := h.Storage.GetGauge(context.Background(), body.ID)
+
+		jsonBody, err := json.Marshal(dto.MetricsDTO{ID: body.ID, MType: body.MType, Value: &value})
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+		}
+		_, err = rw.Write(jsonBody)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+		}
+		return
 	default:
 		http.Error(rw, "Bad request", http.StatusBadRequest)
 		return
 	}
-
-	rw.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) UpdateMetricHandlerText(rw http.ResponseWriter, r *http.Request) {
@@ -116,29 +106,21 @@ func (h *Handler) UpdateMetricHandlerText(rw http.ResponseWriter, r *http.Reques
 		value, err := strconv.ParseInt(metricValue, 10, 64)
 		if err != nil {
 			http.Error(rw, "Bad request", http.StatusBadRequest)
-			return
 		}
-		h.WorkerPool.Submit(func() {
-			h.Storage.IncrementCounter(context.Background(), metricName, value)
-		})
+		h.Storage.IncrementCounter(context.Background(), metricName, value)
 	case dto.MetricTypeGauge:
 		value, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
 			http.Error(rw, "Bad request", http.StatusBadRequest)
-			return
 		}
-		h.WorkerPool.Submit(func() {
-			h.Storage.SetGauge(context.Background(), metricName, value)
-		})
+		h.Storage.SetGauge(context.Background(), metricName, value)
 	default:
 		http.Error(rw, "Bad request", http.StatusBadRequest)
-		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
 }
 
-// GetMetricHandlerJSON обрабатывает запрос на получение метрики через JSON.
 func (h *Handler) GetMetricHandlerJSON(rw http.ResponseWriter, r *http.Request) {
 	var body dto.MetricsDTO
 	rw.Header().Set("Content-Type", "application/json")
@@ -148,59 +130,86 @@ func (h *Handler) GetMetricHandlerJSON(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if body.MType != dto.MetricTypeGauge && body.MType != dto.MetricTypeCounter {
+		http.Error(rw, "Invalid metric type", http.StatusBadRequest)
+		return
+	}
+
 	if body.MType == dto.MetricTypeGauge {
 		value, exists := h.Storage.GetGauge(context.Background(), body.ID)
+
 		if !exists {
 			http.Error(rw, "Metric not found", http.StatusNotFound)
 			return
 		}
+
 		jsonBody, _ := json.Marshal(dto.MetricsDTO{ID: body.ID, MType: body.MType, Value: &value})
 		_, err := rw.Write(jsonBody)
 		if err != nil {
-			http.Error(rw, "Write failed", http.StatusInternalServerError)
+			http.Error(rw, "Write failed", http.StatusBadRequest)
+			return
 		}
-	} else if body.MType == dto.MetricTypeCounter {
+	} else {
 		value, exists := h.Storage.GetCounter(context.Background(), body.ID)
 		if !exists {
 			http.Error(rw, "Metric not found", http.StatusNotFound)
 			return
 		}
-		jsonBody, _ := json.Marshal(dto.MetricsDTO{ID: body.ID, MType: body.MType, Delta: &value})
-		_, err := rw.Write(jsonBody)
+		jsonBody, err := json.Marshal(dto.MetricsDTO{ID: body.ID, MType: body.MType, Delta: &value})
 		if err != nil {
-			http.Error(rw, "Write failed", http.StatusInternalServerError)
+			http.Error(rw, "Json write failed:", http.StatusBadRequest)
+			return
 		}
-	} else {
-		http.Error(rw, "Invalid metric type", http.StatusBadRequest)
+
+		_, err = rw.Write(jsonBody)
+		if err != nil {
+			http.Error(rw, "Write failed", http.StatusBadRequest)
+			return
+		}
 	}
 }
 
-// GetMetricHandlerText обрабатывает запрос на получение метрики через URL параметры.
 func (h *Handler) GetMetricHandlerText(rw http.ResponseWriter, r *http.Request) {
 	metricType := chi.URLParam(r, "metricType")
 	metricName := chi.URLParam(r, "metricName")
+
+	if metricType != dto.MetricTypeGauge && metricType != dto.MetricTypeCounter {
+		http.Error(rw, "Invalid metric type", http.StatusBadRequest)
+	}
 
 	if metricType == dto.MetricTypeGauge {
 		value, exists := h.Storage.GetGauge(context.Background(), metricName)
 		if !exists {
 			http.Error(rw, "Metric not found", http.StatusNotFound)
-			return
 		}
+		rw.Header().Set("Content-Type", "text/plain")
 		_, err := rw.Write([]byte(strconv.FormatFloat(value, 'f', -1, 64)))
 		if err != nil {
-			http.Error(rw, "Write failed", http.StatusInternalServerError)
+			http.Error(rw, "Write failed", http.StatusBadRequest)
 		}
-	} else if metricType == dto.MetricTypeCounter {
+	} else {
 		value, exists := h.Storage.GetCounter(context.Background(), metricName)
 		if !exists {
 			http.Error(rw, "Metric not found", http.StatusNotFound)
-			return
 		}
+		rw.Header().Set("Content-Type", "text/plain")
 		_, err := rw.Write([]byte(strconv.FormatInt(value, 10)))
 		if err != nil {
-			http.Error(rw, "Write failed", http.StatusInternalServerError)
+			http.Error(rw, "Write failed", http.StatusBadRequest)
 		}
-	} else {
-		http.Error(rw, "Invalid metric type", http.StatusBadRequest)
 	}
+}
+
+func (h *Handler) UpdateMetrics(rw http.ResponseWriter, r *http.Request) {
+	var body []dto.MetricsDTO
+	rw.Header().Set("Content-Type", "application/json")
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	h.Storage.SetMetrics(ctx, body)
+	defer cancel()
+	rw.WriteHeader(http.StatusOK)
 }
