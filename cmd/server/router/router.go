@@ -2,7 +2,7 @@ package router
 
 import (
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/handlers"
-	limitedMiddlewarepackage "evgen3000/go-musthave-metrics-tpl.git/cmd/server/limitedMiddleware"
+	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/limitedmiddleware"
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage"
 	"evgen3000/go-musthave-metrics-tpl.git/internal/compressor"
 	"evgen3000/go-musthave-metrics-tpl.git/internal/crypto"
@@ -15,7 +15,7 @@ func SetupRouter(storage storage.MetricsStorage, key string, workerpool *workerp
 	h := handlers.NewHandler(storage, workerpool)
 	c := crypto.Crypto{Key: key}
 	chiRouter := chi.NewRouter()
-	chiRouter.Use(limitedMiddlewarepackage.LimitedHandler)
+	chiRouter.Use(limitedmiddleware.LimitedHandler)
 	chiRouter.Use(compressor.GzipMiddleware)
 	chiRouter.Use(logger.LoggingMiddleware)
 

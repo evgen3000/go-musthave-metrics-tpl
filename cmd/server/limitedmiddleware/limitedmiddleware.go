@@ -1,4 +1,4 @@
-package limitedMiddlewarepackage
+package limitedmiddleware
 
 import (
 	"net/http"
