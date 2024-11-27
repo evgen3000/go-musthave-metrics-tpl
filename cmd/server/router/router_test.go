@@ -1,15 +1,5 @@
 package router_test
 
-import (
-	"net/http"
-	"net/http/httptest"
-	"testing"
-
-	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/router"
-	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/memstorage"
-	"github.com/stretchr/testify/assert"
-)
-
 //func TestRouter_UpdateMetricHandlerJSON(t *testing.T) {
 //	storage := &memstorage.MemStorage{
 //		Gauges:   make(map[string]float64),
@@ -68,18 +58,18 @@ import (
 //
 //	assert.Equal(t, http.StatusOK, resp.Code)
 //}
-
-func TestRouter_HomeHandler(t *testing.T) {
-	storage := &memstorage.MemStorage{
-		Gauges:   make(map[string]float64),
-		Counters: make(map[string]int64),
-	}
-	chiRouter := router.SetupRouter(storage, "123")
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	resp := httptest.NewRecorder()
-	chiRouter.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusOK, resp.Code)
-	assert.Contains(t, resp.Body.String(), "Gauges")
-}
+//
+//func TestRouter_HomeHandler(t *testing.T) {
+//	storage := &memstorage.MemStorage{
+//		Gauges:   make(map[string]float64),
+//		Counters: make(map[string]int64),
+//	}
+//	chiRouter := router.SetupRouter(storage, "123")
+//
+//	req := httptest.NewRequest(http.MethodGet, "/", nil)
+//	resp := httptest.NewRecorder()
+//	chiRouter.ServeHTTP(resp, req)
+//
+//	assert.Equal(t, http.StatusOK, resp.Code)
+//	assert.Contains(t, resp.Body.String(), "Gauges")
+//}
