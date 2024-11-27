@@ -54,7 +54,7 @@ func (m *MemStorage) GetCounter(_ context.Context, metricName string) (int64, bo
 	m.counterMu.Lock()
 	defer m.counterMu.Unlock()
 	value, exists := m.Counters[metricName]
-	log.Printf("Counter", value)
+	log.Println("Counter", value)
 	return value, exists
 }
 
