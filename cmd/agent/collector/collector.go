@@ -31,6 +31,8 @@ type AgentConfig struct {
 	httpClient     *httpclient.HTTPClient
 	rateLimit      int
 	metricsChan    chan []dto.MetricsDTO
+	mu             sync.Mutex
+	PollCounter    int
 }
 
 func NewAgent(host string, pollInterval, reportInterval time.Duration, key string, rateLimit int) *AgentConfig {
@@ -42,6 +44,7 @@ func NewAgent(host string, pollInterval, reportInterval time.Duration, key strin
 		httpClient:     httpclient.NewHTTPClient(host, key),
 		rateLimit:      rateLimit,
 		metricsChan:    make(chan []dto.MetricsDTO, rateLimit),
+		PollCounter:    0,
 	}
 }
 
@@ -74,17 +77,27 @@ func (a *AgentConfig) Start(ctx context.Context) {
 }
 
 func (a *AgentConfig) pollRuntimeMetrics(ctx context.Context) {
-	ticker := time.NewTicker(a.pollInterval)
-	defer ticker.Stop()
-
+	pollTicker := time.NewTicker(a.pollInterval)
 	for {
 		select {
 		case <-ctx.Done():
 			fmt.Println("Сбор runtime метрик завершен.")
 			return
-		case <-ticker.C:
-			metricsTicker := a.collector.CollectMetrics()
-			a.metricsChan <- metricsTicker
+		case <-pollTicker.C:
+			collectedMetrics := a.collector.CollectMetrics()
+
+			// Увеличиваем PoolCount
+			a.mu.Lock()
+			a.PollCounter++
+			poolCount := int64(a.PollCounter)
+			a.mu.Unlock()
+
+			// Добавляем PoolCount к метрикам
+			collectedMetrics = append(collectedMetrics, dto.MetricsDTO{ID: "PollCount", MType: "counter", Delta: &poolCount})
+
+			// Отправляем в канал
+			a.metricsChan <- collectedMetrics
+			fmt.Printf("Runtime metrics collected: %v\n", collectedMetrics)
 		}
 	}
 }
