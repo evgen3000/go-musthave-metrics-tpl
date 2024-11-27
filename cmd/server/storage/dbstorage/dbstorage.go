@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"sync"
 
 	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
 	"github.com/jackc/pgx/v5"
@@ -13,7 +12,6 @@ import (
 
 type DBStorage struct {
 	Pool *pgxpool.Pool
-	mu   sync.Mutex
 }
 
 type Gauge struct {
