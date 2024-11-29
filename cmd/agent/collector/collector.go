@@ -15,6 +15,12 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
+type Collector interface {
+	CollectMetrics() []dto.MetricsDTO
+}
+
+type CollectorImpl struct{}
+
 func GenerateJSON(m []dto.MetricsDTO) []byte {
 	body, err := json.Marshal(m)
 	if err != nil {
@@ -25,25 +31,25 @@ func GenerateJSON(m []dto.MetricsDTO) []byte {
 
 type AgentConfig struct {
 	host           string
-	pollInterval   time.Duration
-	reportInterval time.Duration
-	collector      *metrics.Collector
-	httpClient     *httpclient.HTTPClient
-	rateLimit      int
-	metricsChan    chan []dto.MetricsDTO
-	mu             sync.Mutex
+	PollInterval   time.Duration
+	ReportInterval time.Duration
+	Collector      metrics.Collector
+	HTTPClient     httpclient.HTTPClientInterface
+	RateLimit      int
+	MetricsChan    chan []dto.MetricsDTO
+	Mu             sync.Mutex
 	PollCounter    int
 }
 
 func NewAgent(host string, pollInterval, reportInterval time.Duration, key string, rateLimit int) *AgentConfig {
 	return &AgentConfig{
 		host:           host,
-		pollInterval:   pollInterval,
-		reportInterval: reportInterval,
-		collector:      metrics.NewMetricsCollector(),
-		httpClient:     httpclient.NewHTTPClient(host, key),
-		rateLimit:      rateLimit,
-		metricsChan:    make(chan []dto.MetricsDTO, rateLimit),
+		PollInterval:   pollInterval,
+		ReportInterval: reportInterval,
+		Collector:      metrics.NewMetricsCollector(), // Это работает как интерфейс
+		HTTPClient:     httpclient.NewHTTPClient(host, key),
+		RateLimit:      rateLimit,
+		MetricsChan:    make(chan []dto.MetricsDTO, rateLimit),
 		PollCounter:    0,
 	}
 }
@@ -55,55 +61,55 @@ func (a *AgentConfig) Start(ctx context.Context) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		a.pollRuntimeMetrics(ctx)
+		a.PollRuntimeMetrics(ctx)
 	}()
 
 	// Горутина для сбора системных метрик
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		a.pollSystemMetrics(ctx)
+		a.PollSystemMetrics(ctx)
 	}()
 
 	// Горутина для отправки метрик
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		a.sendMetrics(ctx)
+		a.SendMetrics(ctx)
 	}()
 
 	wg.Wait()
 	fmt.Println("Agent завершил работу.")
 }
 
-func (a *AgentConfig) pollRuntimeMetrics(ctx context.Context) {
-	pollTicker := time.NewTicker(a.pollInterval)
+func (a *AgentConfig) PollRuntimeMetrics(ctx context.Context) {
+	pollTicker := time.NewTicker(a.PollInterval)
 	for {
 		select {
 		case <-ctx.Done():
 			fmt.Println("Сбор runtime метрик завершен.")
 			return
 		case <-pollTicker.C:
-			collectedMetrics := a.collector.CollectMetrics()
+			collectedMetrics := a.Collector.CollectMetrics()
 
 			// Увеличиваем PoolCount
-			a.mu.Lock()
+			a.Mu.Lock()
 			a.PollCounter++
 			poolCount := int64(a.PollCounter)
-			a.mu.Unlock()
+			a.Mu.Unlock()
 
 			// Добавляем PoolCount к метрикам
 			collectedMetrics = append(collectedMetrics, dto.MetricsDTO{ID: "PollCount", MType: "counter", Delta: &poolCount})
 
 			// Отправляем в канал
-			a.metricsChan <- collectedMetrics
+			a.MetricsChan <- collectedMetrics
 			fmt.Printf("Runtime metrics collected: %v\n", collectedMetrics)
 		}
 	}
 }
 
-func (a *AgentConfig) pollSystemMetrics(ctx context.Context) {
-	ticker := time.NewTicker(a.pollInterval)
+func (a *AgentConfig) PollSystemMetrics(ctx context.Context) {
+	ticker := time.NewTicker(a.PollInterval)
 	defer ticker.Stop()
 
 	for {
@@ -136,25 +142,25 @@ func (a *AgentConfig) pollSystemMetrics(ctx context.Context) {
 				systemMetrics = append(systemMetrics, dto.MetricsDTO{ID: id, MType: dto.MetricTypeGauge, Value: &util})
 			}
 
-			a.metricsChan <- systemMetrics
+			a.MetricsChan <- systemMetrics
 		}
 	}
 }
 
-func (a *AgentConfig) sendMetrics(ctx context.Context) {
-	sem := make(chan struct{}, a.rateLimit) // Ограничение запросов
+func (a *AgentConfig) SendMetrics(ctx context.Context) {
+	sem := make(chan struct{}, a.RateLimit) // Ограничение запросов
 
 	for {
 		select {
 		case <-ctx.Done():
 			fmt.Println("Отправка метрик завершена.")
 			return
-		case metricsTicker := <-a.metricsChan:
+		case metricsTicker := <-a.MetricsChan:
 			sem <- struct{}{} // Захват семафора
 			go func(data []dto.MetricsDTO) {
 				defer func() { <-sem }() // Освобождение семафора
 				jsonData := GenerateJSON(data)
-				a.httpClient.SendMetrics(jsonData)
+				a.HTTPClient.SendMetrics(jsonData)
 				log.Printf("Отправлены метрики: %s\n", string(jsonData))
 			}(metricsTicker)
 		}

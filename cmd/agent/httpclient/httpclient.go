@@ -11,6 +11,10 @@ import (
 	"evgen3000/go-musthave-metrics-tpl.git/internal/crypto"
 )
 
+type HTTPClientInterface interface {
+	SendMetrics(data []byte)
+}
+
 type HTTPClient struct {
 	host string
 	key  string
