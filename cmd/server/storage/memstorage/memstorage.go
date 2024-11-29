@@ -3,13 +3,16 @@ package memstorage
 import (
 	"context"
 	"log"
+	"sync"
 
 	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
 )
 
 type MemStorage struct {
-	Gauges   map[string]float64 `json:"gauges"`
-	Counters map[string]int64   `json:"counters"`
+	Gauges    map[string]float64 `json:"gauges"`
+	Counters  map[string]int64   `json:"counters"`
+	gaugeMu   sync.Mutex
+	counterMu sync.Mutex
 }
 
 func (m *MemStorage) StorageType() string {
@@ -29,27 +32,53 @@ func (m *MemStorage) SetMetrics(ctx context.Context, metrics []dto.MetricsDTO) {
 }
 
 func (m *MemStorage) SetGauge(_ context.Context, metricName string, value float64) {
+	m.gaugeMu.Lock()
+	defer m.gaugeMu.Unlock()
 	m.Gauges[metricName] = value
 }
 
 func (m *MemStorage) IncrementCounter(_ context.Context, metricName string, value int64) {
+	m.counterMu.Lock()
+	defer m.counterMu.Unlock()
 	m.Counters[metricName] += value
 }
 
 func (m *MemStorage) GetGauge(_ context.Context, metricName string) (float64, bool) {
+	m.gaugeMu.Lock()
+	defer m.gaugeMu.Unlock()
 	value, exists := m.Gauges[metricName]
 	return value, exists
 }
 
 func (m *MemStorage) GetCounter(_ context.Context, metricName string) (int64, bool) {
+	m.counterMu.Lock()
+	defer m.counterMu.Unlock()
 	value, exists := m.Counters[metricName]
+	log.Println("Counter", value)
 	return value, exists
 }
 
 func (m *MemStorage) GetAllGauges(_ context.Context) map[string]float64 {
-	return m.Gauges
+	m.gaugeMu.Lock()
+	defer m.gaugeMu.Unlock()
+
+	clone := make(map[string]float64, len(m.Gauges))
+	for k, v := range m.Gauges {
+		clone[k] = v
+	}
+	return clone
 }
 
 func (m *MemStorage) GetAllCounters(_ context.Context) map[string]int64 {
-	return m.Counters
+	m.counterMu.Lock()
+	defer m.counterMu.Unlock()
+
+	clone := make(map[string]int64, len(m.Counters))
+	for k, v := range m.Counters {
+		clone[k] = v
+	}
+	return clone
+}
+
+func (m *MemStorage) Close(_ context.Context) {
 }

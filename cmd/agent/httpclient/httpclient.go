@@ -7,20 +7,27 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"evgen3000/go-musthave-metrics-tpl.git/internal/crypto"
 )
+
+type HTTPClientInterface interface {
+	SendMetrics(data []byte)
+}
 
 type HTTPClient struct {
 	host string
+	key  string
 }
 
-func NewHTTPClient(host string) *HTTPClient {
-	return &HTTPClient{host: host}
+func NewHTTPClient(host string, key string) *HTTPClient {
+	return &HTTPClient{host: host, key: key}
 }
 
 func (hc *HTTPClient) SendMetrics(data []byte) {
 	url := fmt.Sprintf("http://%s/updates/", hc.host)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
 	var buf bytes.Buffer
@@ -40,8 +47,13 @@ func (hc *HTTPClient) SendMetrics(data []byte) {
 		fmt.Println("Error creating request:", err)
 		return
 	}
+
+	hash := crypto.GenerateHash(data, hc.key)
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("HashSHA256", hash)
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -10,46 +9,38 @@ import (
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage"
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/memstorage/filemanager"
 	"evgen3000/go-musthave-metrics-tpl.git/internal/config/server"
-	httpLogger "evgen3000/go-musthave-metrics-tpl.git/internal/logger"
-	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
+	"evgen3000/go-musthave-metrics-tpl.git/internal/workerpool"
 )
 
-func runServer(config *server.Config, router *chi.Mux) {
-	logger := httpLogger.InitLogger()
-	logger.Info("server is running on", zap.String("host", config.Host))
-
-	err := http.ListenAndServe(config.Host, router)
-	if err != nil {
-		logger.Fatal("Error", zap.String("Error", err.Error()))
-	}
-}
-
 func main() {
-	c := server.GetServerConfig()
+	conf := server.GetServerConfig()
 	fm := filemanager.FileManager{}
 	s, err := storage.NewStorage(storage.Config{
-		StoreInterval:   c.StoreInterval,
-		FileStoragePath: c.FilePath,
-		Restore:         c.Restore,
-		Database:        c.Database,
+		StoreInterval:   conf.StoreInterval,
+		FileStoragePath: conf.FilePath,
+		Restore:         conf.Restore,
+		Database:        conf.Database,
 	}, &fm)
 	if err != nil {
-		log.Fatal(errors.Unwrap(err))
+		log.Fatal("Error initializing storage:", err)
 	}
-	r := router.SetupRouter(s)
 
-	ticker := time.NewTicker(c.StoreInterval)
+	workerPool := workerpool.NewWorkerPool(conf.RateLimit, 100)
+
+	r := router.SetupRouter(s, conf.CryptoKey, workerPool)
+
+	ticker := time.NewTicker(conf.StoreInterval)
 	defer ticker.Stop()
 	go func() {
 		for range ticker.C {
-			if err := fm.SaveData(c.FilePath, s); err != nil {
-				log.Fatal("Can't to save data to storage.json")
+			if err := fm.SaveData(conf.FilePath, s); err != nil {
+				log.Fatal("Can't save data to storage.json")
 			} else {
 				log.Println("Saved data")
 			}
 		}
 	}()
 
-	runServer(c, r)
+	log.Println("Server is running on", conf.Host)
+	log.Fatal(http.ListenAndServe(conf.Host, r))
 }

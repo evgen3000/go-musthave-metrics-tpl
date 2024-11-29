@@ -1,87 +1,104 @@
 package router_test
 
 import (
-	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
-	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/router"
-	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/memstorage"
+	r "evgen3000/go-musthave-metrics-tpl.git/cmd/server/router"
+	"evgen3000/go-musthave-metrics-tpl.git/internal/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-func TestRouter_UpdateMetricHandlerJSON(t *testing.T) {
-	storage := &memstorage.MemStorage{
-		Gauges:   make(map[string]float64),
-		Counters: make(map[string]int64),
-	}
-	chiRouter := router.SetupRouter(storage)
+func TestPingRoute(t *testing.T) {
+	mockStorage := new(mocks.MockMetricsStorage)
+	mockStorage.On("StorageType").Return("db")
 
-	reqBody := map[string]interface{}{
-		"id":    "testGauge",
-		"type":  "gauge",
-		"value": 42.42,
-	}
-	jsonBody, _ := json.Marshal(reqBody)
+	router := r.SetupRouter(mockStorage, "", nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/update/", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	chiRouter.ServeHTTP(resp, req)
+	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	rec := httptest.NewRecorder()
 
-	assert.Equal(t, http.StatusOK, resp.Code)
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	mockStorage.AssertExpectations(t)
 }
 
-func TestRouter_UpdateMetricHandlerText(t *testing.T) {
-	storage := &memstorage.MemStorage{
-		Gauges:   make(map[string]float64),
-		Counters: make(map[string]int64),
-	}
-	chiRouter := router.SetupRouter(storage)
+func TestHomeHandlerRoute(t *testing.T) {
+	mockStorage := new(mocks.MockMetricsStorage)
+	mockStorage.On("GetAllGauges", mock.Anything).Return(map[string]float64{
+		"gauge1": 42.42,
+	})
+	mockStorage.On("GetAllCounters", mock.Anything).Return(map[string]int64{
+		"counter1": 100,
+	})
 
-	req := httptest.NewRequest(http.MethodPost, "/update/gauge/testGauge/42.42", nil)
-	resp := httptest.NewRecorder()
-	chiRouter.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusOK, resp.Code)
-}
-
-func TestRouter_GetMetricHandlerJSON(t *testing.T) {
-	storage := &memstorage.MemStorage{
-		Gauges: map[string]float64{
-			"testGauge": 42.42,
-		},
-		Counters: make(map[string]int64),
-	}
-	chiRouter := router.SetupRouter(storage)
-
-	reqBody := map[string]interface{}{
-		"id":   "testGauge",
-		"type": "gauge",
-	}
-	jsonBody, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest(http.MethodPost, "/value/", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	chiRouter.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusOK, resp.Code)
-}
-
-func TestRouter_HomeHandler(t *testing.T) {
-	storage := &memstorage.MemStorage{
-		Gauges:   make(map[string]float64),
-		Counters: make(map[string]int64),
-	}
-	chiRouter := router.SetupRouter(storage)
+	router := r.SetupRouter(mockStorage, "", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	resp := httptest.NewRecorder()
-	chiRouter.ServeHTTP(resp, req)
+	rec := httptest.NewRecorder()
 
-	assert.Equal(t, http.StatusOK, resp.Code)
-	assert.Contains(t, resp.Body.String(), "Gauges")
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), "gauge1: 42.42")
+	assert.Contains(t, rec.Body.String(), "counter1: 100")
+	mockStorage.AssertExpectations(t)
+}
+
+func TestUpdateMetricHandlerJSONRoute(t *testing.T) {
+	mockStorage := new(mocks.MockMetricsStorage)
+	mockStorage.On("IncrementCounter", mock.Anything, "counter1", int64(10))
+	mockStorage.On("GetCounter", mock.Anything, "counter1").Return(int64(10), true)
+
+	router := r.SetupRouter(mockStorage, "", nil)
+
+	body := `{"id": "counter1", "type": "counter", "delta": 10}`
+	req := httptest.NewRequest(http.MethodPost, "/update/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"delta":10`)
+	mockStorage.AssertExpectations(t)
+}
+
+func TestGetMetricHandlerJSONRoute(t *testing.T) {
+	mockStorage := new(mocks.MockMetricsStorage)
+	mockStorage.On("GetCounter", mock.Anything, "counter1").Return(int64(10), true)
+
+	router := r.SetupRouter(mockStorage, "", nil)
+
+	body := `{"id": "counter1", "type": "counter"}`
+	req := httptest.NewRequest(http.MethodPost, "/value/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"delta":10`)
+	mockStorage.AssertExpectations(t)
+}
+
+func TestUpdateMetricsRoute(t *testing.T) {
+	mockStorage := new(mocks.MockMetricsStorage)
+	mockStorage.On("SetMetrics", mock.Anything, mock.Anything).Return()
+
+	router := r.SetupRouter(mockStorage, "", nil)
+
+	body := `[{"id": "counter1", "type": "counter", "delta": 10}]`
+	req := httptest.NewRequest(http.MethodPost, "/updates/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	mockStorage.AssertExpectations(t)
 }

@@ -7,13 +7,18 @@ import (
 	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
 )
 
-type Collector struct{}
-
-func NewMetricsCollector() *Collector {
-	return &Collector{}
+type Collector interface {
+	CollectMetrics() []dto.MetricsDTO
 }
 
-func (mc *Collector) CollectMetrics() []dto.MetricsDTO {
+// Реализация интерфейса
+type CollectorImpl struct{}
+
+func NewMetricsCollector() *CollectorImpl {
+	return &CollectorImpl{}
+}
+
+func (mc *CollectorImpl) CollectMetrics() []dto.MetricsDTO {
 	memStats := new(runtime.MemStats)
 	runtime.ReadMemStats(memStats)
 

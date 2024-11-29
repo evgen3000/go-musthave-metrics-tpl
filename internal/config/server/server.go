@@ -13,6 +13,8 @@ type Config struct {
 	FilePath      string
 	Restore       bool
 	Database      string
+	CryptoKey     string
+	RateLimit     int
 }
 
 func GetServerConfig() *Config {
@@ -21,6 +23,8 @@ func GetServerConfig() *Config {
 	filePathFlag := flag.String("f", "storage.json", "File storage location.")
 	restoreFlag := flag.Bool("r", true, "Restore stored configuration.")
 	databaseURL := flag.String("d", "", "Database IP address and port. like: postgres://admin:admin@localhost:5432/admin")
+	cryptoKey := flag.String("k", "", "AES encryption key.")
+	rateLimit := flag.Int("l", 10, "Limited Race.")
 	flag.Parse()
 	return &Config{
 		Host:          utils.GetStringValue("ADDRESS", *hostFlag),
@@ -28,5 +32,7 @@ func GetServerConfig() *Config {
 		StoreInterval: time.Duration(utils.GetIntValue("STORE_INTERVAL", *storeIntervalFlag)) * time.Second,
 		Restore:       utils.GetBoolValue("RESTORE", *restoreFlag),
 		Database:      utils.GetStringValue("DATABASE_DSN", *databaseURL),
+		CryptoKey:     utils.GetStringValue("KEY", *cryptoKey),
+		RateLimit:     utils.GetIntValue("RATE_LIMIT", *rateLimit),
 	}
 }

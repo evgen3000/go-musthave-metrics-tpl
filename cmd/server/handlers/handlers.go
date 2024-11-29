@@ -10,15 +10,18 @@ import (
 
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage"
 	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
+	"evgen3000/go-musthave-metrics-tpl.git/internal/workerpool"
 	"github.com/go-chi/chi/v5"
 )
 
 type Handler struct {
-	Storage storage.MetricsStorage
+	Storage    storage.MetricsStorage
+	WorkerPool *workerpool.WorkerPool
 }
 
-func NewHandler(storage storage.MetricsStorage) *Handler {
-	return &Handler{Storage: storage}
+func NewHandler(storage storage.MetricsStorage, workerPool *workerpool.WorkerPool) *Handler {
+
+	return &Handler{Storage: storage, WorkerPool: workerPool}
 }
 
 func (h *Handler) Ping(rw http.ResponseWriter, _ *http.Request) {

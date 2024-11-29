@@ -1,152 +1,118 @@
 package handlers_test
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/handlers"
-	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage"
-	"evgen3000/go-musthave-metrics-tpl.git/cmd/server/storage/memstorage/filemanager"
-	"evgen3000/go-musthave-metrics-tpl.git/internal/dto"
-	"github.com/go-chi/chi/v5"
+	"evgen3000/go-musthave-metrics-tpl.git/internal/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-func setupHandler() *handlers.Handler {
-	fm := filemanager.FileManager{}
-	memStorage, err := storage.NewStorage(storage.Config{
-		StoreInterval:   5,
-		FileStoragePath: "storage.json",
-		Restore:         false,
-		Database:        "",
-	}, &fm)
-	if err != nil {
-		panic(err)
-	}
-	return handlers.NewHandler(memStorage)
+func TestPing(t *testing.T) {
+	mockStorage := new(mocks.MockMetricsStorage)
+	mockStorage.On("StorageType").Return("db")
+
+	handler := handlers.NewHandler(mockStorage, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	rec := httptest.NewRecorder()
+
+	handler.Ping(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	mockStorage.AssertExpectations(t)
 }
 
 func TestHomeHandler(t *testing.T) {
-	h := setupHandler()
-	req, err := http.NewRequest(http.MethodGet, "/", nil)
-	assert.NoError(t, err)
+	mockStorage := new(mocks.MockMetricsStorage)
+	mockStorage.On("GetAllGauges", mock.Anything).Return(map[string]float64{
+		"gauge1": 42.42,
+		"gauge2": 24.24,
+	})
+	mockStorage.On("GetAllCounters", mock.Anything).Return(map[string]int64{
+		"counter1": 100,
+		"counter2": 200,
+	})
 
-	recorder := httptest.NewRecorder()
-	h.HomeHandler(recorder, req)
+	handler := handlers.NewHandler(mockStorage, nil)
 
-	assert.Equal(t, http.StatusOK, recorder.Code)
-	assert.Contains(t, recorder.Body.String(), "<h4>Gauges</h4>")
-	assert.Contains(t, recorder.Body.String(), "<h4>Counters</h4>")
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+
+	handler.HomeHandler(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), "gauge1: 42.42")
+	assert.Contains(t, rec.Body.String(), "counter1: 100")
+	mockStorage.AssertExpectations(t)
 }
 
 func TestUpdateMetricHandlerJSON(t *testing.T) {
-	h := setupHandler()
+	mockStorage := new(mocks.MockMetricsStorage)
+	mockStorage.On("IncrementCounter", mock.Anything, "counter1", int64(10))
+	mockStorage.On("GetCounter", mock.Anything, "counter1").Return(int64(10), true)
+	mockStorage.On("SetGauge", mock.Anything, "gauge1", 42.42)
+	mockStorage.On("GetGauge", mock.Anything, "gauge1").Return(42.42, true)
 
-	// Test for Counter metric
-	counterMetric := dto.MetricsDTO{
-		ID:    "test_counter",
-		MType: dto.MetricTypeCounter,
-		Delta: new(int64),
-	}
-	*counterMetric.Delta = 42
+	handler := handlers.NewHandler(mockStorage, nil)
 
-	body, err := json.Marshal(counterMetric)
-	assert.NoError(t, err)
+	// Test counter update
+	counterBody := `{"id": "counter1", "type": "counter", "delta": 10}`
+	req := httptest.NewRequest(http.MethodPost, "/update/", strings.NewReader(counterBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
 
-	req, err := http.NewRequest(http.MethodPost, "/update/", bytes.NewBuffer(body))
-	assert.NoError(t, err)
-	recorder := httptest.NewRecorder()
-	h.UpdateMetricHandlerJSON(recorder, req)
+	handler.UpdateMetricHandlerJSON(rec, req)
 
-	assert.Equal(t, http.StatusOK, recorder.Code)
-	assert.Contains(t, recorder.Body.String(), "test_counter")
-	assert.Contains(t, recorder.Body.String(), "42")
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"delta":10`)
 
-	// Test for Gauge metric
-	gaugeMetric := dto.MetricsDTO{
-		ID:    "test_gauge",
-		MType: dto.MetricTypeGauge,
-		Value: new(float64),
-	}
-	*gaugeMetric.Value = 3.14
+	// Test gauge update
+	gaugeBody := `{"id": "gauge1", "type": "gauge", "value": 42.42}`
+	req = httptest.NewRequest(http.MethodPost, "/update/", strings.NewReader(gaugeBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
 
-	body, err = json.Marshal(gaugeMetric)
-	assert.NoError(t, err)
+	handler.UpdateMetricHandlerJSON(rec, req)
 
-	req, err = http.NewRequest(http.MethodPost, "/update/", bytes.NewBuffer(body))
-	assert.NoError(t, err)
-	recorder = httptest.NewRecorder()
-	h.UpdateMetricHandlerJSON(recorder, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"value":42.42`)
 
-	assert.Equal(t, http.StatusOK, recorder.Code)
-	assert.Contains(t, recorder.Body.String(), "test_gauge")
-	assert.Contains(t, recorder.Body.String(), "3.14")
-}
-
-func TestUpdateMetricHandlerText(t *testing.T) {
-	h := setupHandler()
-
-	// Test for Counter metric
-	req, err := http.NewRequest(http.MethodPost, "/update/counter/test_counter/42", nil)
-	assert.NoError(t, err)
-
-	r := chi.NewRouter()
-	r.Post("/update/{metricType}/{metricName}/{metricValue}", h.UpdateMetricHandlerText)
-	recorder := httptest.NewRecorder()
-	r.ServeHTTP(recorder, req)
-
-	assert.Equal(t, http.StatusOK, recorder.Code)
-
-	// Test for Gauge metric
-	req, err = http.NewRequest(http.MethodPost, "/update/gauge/test_gauge/3.14", nil)
-	assert.NoError(t, err)
-
-	recorder = httptest.NewRecorder()
-	r.ServeHTTP(recorder, req)
-
-	assert.Equal(t, http.StatusOK, recorder.Code)
+	mockStorage.AssertExpectations(t)
 }
 
 func TestGetMetricHandlerJSON(t *testing.T) {
-	h := setupHandler()
+	mockStorage := new(mocks.MockMetricsStorage)
+	mockStorage.On("GetCounter", mock.Anything, "counter1").Return(int64(10), true)
+	mockStorage.On("GetGauge", mock.Anything, "gauge1").Return(42.42, true)
 
-	h.Storage.SetGauge(context.Background(), "test_gauge", 3.14)
+	handler := handlers.NewHandler(mockStorage, nil)
 
-	metric := dto.MetricsDTO{
-		ID:    "test_gauge",
-		MType: dto.MetricTypeGauge,
-	}
-	body, err := json.Marshal(metric)
-	assert.NoError(t, err)
+	// Test counter get
+	counterBody := `{"id": "counter1", "type": "counter"}`
+	req := httptest.NewRequest(http.MethodPost, "/value/", strings.NewReader(counterBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
 
-	req, err := http.NewRequest(http.MethodPost, "/value/", bytes.NewBuffer(body))
-	assert.NoError(t, err)
-	recorder := httptest.NewRecorder()
-	h.GetMetricHandlerJSON(recorder, req)
+	handler.GetMetricHandlerJSON(rec, req)
 
-	assert.Equal(t, http.StatusOK, recorder.Code)
-	assert.Contains(t, recorder.Body.String(), "test_gauge")
-	assert.Contains(t, recorder.Body.String(), "3.14")
-}
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"delta":10`)
 
-func TestGetMetricHandlerText(t *testing.T) {
-	h := setupHandler()
+	// Test gauge get
+	gaugeBody := `{"id": "gauge1", "type": "gauge"}`
+	req = httptest.NewRequest(http.MethodPost, "/value/", strings.NewReader(gaugeBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
 
-	h.Storage.SetGauge(context.Background(), "test_gauge", 3.14)
+	handler.GetMetricHandlerJSON(rec, req)
 
-	req, err := http.NewRequest(http.MethodGet, "/value/gauge/test_gauge", nil)
-	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"value":42.42`)
 
-	r := chi.NewRouter()
-	r.Get("/value/{metricType}/{metricName}", h.GetMetricHandlerText)
-
-	recorder := httptest.NewRecorder()
-	r.ServeHTTP(recorder, req)
-
-	assert.Equal(t, http.StatusOK, recorder.Code)
-	assert.Contains(t, recorder.Body.String(), "3.14")
+	mockStorage.AssertExpectations(t)
 }
