@@ -7,6 +7,14 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+type MockWorkerPool struct {
+	mock.Mock
+}
+
+func (m *MockWorkerPool) Submit(task func()) {
+	m.Called(task)
+}
+
 type MockCollector struct {
 	mock.Mock
 }
